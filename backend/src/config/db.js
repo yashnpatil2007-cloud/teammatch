@@ -8,13 +8,18 @@ const connectDB = async () => {
     console.log('Datastore: local file store (set USE_MONGO=true + MONGO_URI to use MongoDB)');
     return;
   }
-  try {
-    const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: 3000 });
-    state.connected = true;
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (err) {
-    console.warn('MongoDB unavailable, using local file store:', err.message);
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: 15000 });
+      state.connected = true;
+      console.log(`MongoDB Connected: ${conn.connection.host}`);
+      return;
+    } catch (err) {
+      console.warn(`MongoDB attempt ${attempt} failed: ${err.message}`);
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 3000));
+    }
   }
+  console.warn('MongoDB unavailable, using local file store (data will not persist in production)');
 };
 
 module.exports = connectDB;
