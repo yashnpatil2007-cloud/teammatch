@@ -39,9 +39,18 @@ app.use('/api/quizzes', require('./routes/quiz'));
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/dev', require('./routes/dev'));
 
-app.get('/api/health', (req, res) =>
-  res.json({ status: 'ok', time: new Date().toISOString(), service: 'TeamMatch API v1', datastore: storeMode() })
-);
+app.get('/api/health', (req, res) => {
+  const mongoError = connectDB.state && connectDB.state.error;
+  res.json({
+    status: 'ok',
+    time: new Date().toISOString(),
+    service: 'TeamMatch API v1',
+    datastore: storeMode(),
+    ...(storeMode() === 'file' && mongoError
+      ? { datastoreError: mongoError.replace(/\/\/[^@]*@/g, '//***@') }
+      : {}),
+  });
+});
 app.get('/', (req, res) => res.json({ message: 'TeamMatch API — AI Powered Team Formation', health: '/api/health' }));
 
 app.use((req, res) => res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` }));

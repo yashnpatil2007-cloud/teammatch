@@ -1,6 +1,9 @@
+const dns = require('dns');
 const mongoose = require('mongoose');
 
-const state = { connected: false };
+dns.setDefaultResultOrder('ipv4first');
+
+const state = { connected: false, error: null };
 
 const connectDB = async () => {
   const uri = process.env.MONGO_URI;
@@ -10,11 +13,13 @@ const connectDB = async () => {
   }
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: 15000 });
+      const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: 20000, family: 4 });
       state.connected = true;
+      state.error = null;
       console.log(`MongoDB Connected: ${conn.connection.host}`);
       return;
     } catch (err) {
+      state.error = err.message;
       console.warn(`MongoDB attempt ${attempt} failed: ${err.message}`);
       if (attempt < 3) await new Promise((r) => setTimeout(r, 3000));
     }
