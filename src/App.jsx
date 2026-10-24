@@ -15,6 +15,7 @@ import Strength from './pages/Strength';
 import Reviews from './pages/Reviews';
 import Leaderboard from './pages/Leaderboard';
 import AdminDashboard from './pages/Admin/Dashboard';
+import PersonalDetails from './pages/Profile/PersonalDetails';
 
 function Protected({ children, roles }){
   const { user, isAuthenticated } = useAuth();
@@ -41,6 +42,7 @@ export default function App(){
 
             <Route path="/dashboard" element={<Protected><DashboardLayout/></Protected>}>
               <Route index element={<RoleRedirect/>} />
+              <Route path="profile" element={<Protected><PersonalDetails/></Protected>} />
               {/* Organizer */}
               <Route path="organizer" element={<Protected roles={['organizer','admin']}><OrganizerDashboard/></Protected>} />
               <Route path="organizer/problems" element={<Protected roles={['organizer','admin']}><OrganizerDashboard/></Protected>} />

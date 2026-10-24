@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Modal, Field, inputCls } from '../../components/ui/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { userApi, teamApi, errMsg } from '../../services/api';
-import { Award, Star, FileText, TrendingUp, UploadCloud, Code2, RefreshCw, Pencil, ExternalLink, BadgeCheck, Clock, X } from 'lucide-react';
+import { Award, Star, FileText, TrendingUp, UploadCloud, RefreshCw, Pencil, ExternalLink, BadgeCheck, Clock, X } from 'lucide-react';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
 
 const certStatus = (s) => (s === 'verified' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : s === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-amber-100 text-amber-700 border-amber-200');
@@ -17,7 +17,7 @@ export default function MemberDashboard(){
  const [msg,setMsg]=useState('');
  const [editOpen,setEditOpen]=useState(false);
  const [certOpen,setCertOpen]=useState(false);
- const [pForm,setPForm]=useState({bio:'',github:'',linkedin:'',skills:''});
+ const [pForm,setPForm]=useState({name:'',bio:'',about:'',github:'',linkedin:'',portfolio:'',website:'',resumeUrl:'',phone:'',college:'',year:'',branch:'',location:'',profilePicture:'',avatar:'',skills:''});
  const [cForm,setCForm]=useState({title:'',issuer:'',url:'',skill:''});
  const [busy,setBusy]=useState(false);
 
@@ -36,7 +36,24 @@ export default function MemberDashboard(){
  const certificates = profile?.certificates || [];
 
  const openEdit = ()=>{
-  setPForm({ bio: profile?.bio||'', github: profile?.github||'', linkedin: profile?.linkedin||'', skills: skills.map(s=>s.name).join(', ') });
+  setPForm({
+    name: profile?.name||user?.name||'',
+    bio: profile?.bio||'',
+    about: profile?.about||'',
+    github: profile?.github||'',
+    linkedin: profile?.linkedin||'',
+    portfolio: profile?.portfolio||'',
+    website: profile?.website||'',
+    resumeUrl: profile?.resumeUrl||'',
+    phone: profile?.phone||'',
+    college: profile?.college||'',
+    year: profile?.year||'',
+    branch: profile?.branch||'',
+    location: profile?.location||'',
+    profilePicture: profile?.profilePicture||profile?.avatar||'',
+    avatar: profile?.avatar||'',
+    skills: skills.map(s=>s.name).join(', ')
+  });
   setErr(''); setEditOpen(true);
  };
 
@@ -48,7 +65,24 @@ export default function MemberDashboard(){
     const existing = skills.find(s=>s.name.toLowerCase()===name);
     return existing || { name, level: 5, badge: 'Bronze' };
    });
-   const updated = await userApi.updateProfile({ bio:pForm.bio, github:pForm.github, linkedin:pForm.linkedin, skills: nextSkills });
+    const updated = await userApi.updateProfile({
+      name: pForm.name,
+      bio: pForm.bio,
+      about: pForm.about,
+      github: pForm.github,
+      linkedin: pForm.linkedin,
+      portfolio: pForm.portfolio,
+      website: pForm.website,
+      resumeUrl: pForm.resumeUrl,
+      phone: pForm.phone,
+      college: pForm.college,
+      year: pForm.year,
+      branch: pForm.branch,
+      location: pForm.location,
+      profilePicture: pForm.profilePicture,
+      avatar: pForm.avatar,
+      skills: nextSkills
+    });
    setProfile(p=>({ ...p, ...updated }));
    await refresh();
    setMsg('Profile updated.');
@@ -74,29 +108,43 @@ export default function MemberDashboard(){
  return (
  <div className="space-y-6">
  <div className="flex flex-wrap items-end justify-between gap-4">
- <div><h1 className="text-[24px] font-extrabold">Welcome, {user?.name}</h1><p className="text-[13px] text-[var(--text-secondary)]">Your verified profile • Reliability Score strengthens with quizzes & reviews.</p></div>
- <div className="flex gap-2"><Button variant="ghost" onClick={load}><RefreshCw className="w-4 h-4"/> Refresh</Button><Button variant="gradient" onClick={openEdit}><Pencil className="w-4 h-4"/> Edit Profile</Button></div>
+  <div><h1 className="text-[24px] font-extrabold">Welcome, {user?.name}</h1><p className="text-[13px] text-[var(--text-secondary)]">Your profile • Reliability Score strengthens with quizzes & reviews.</p></div>
+  <div className="flex gap-2"><Button variant="ghost" onClick={load}><RefreshCw className="w-4 h-4"/> Refresh</Button><Button variant="gradient" onClick={openEdit}><Pencil className="w-4 h-4"/> Edit Profile</Button></div>
  </div>
 
- {msg && <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[12px] text-emerald-800">{msg}</div>}
- {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-[12px] text-red-600">{err}</div>}
+  {msg && <div className="p-3 rounded-xl bg-emerald-100 border border-emerald-200 text-[12px] text-emerald-800 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300">{msg}</div>}
+  {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-[12px] text-red-600 dark:text-red-400">{err}</div>}
 
  <div className="grid lg:grid-cols-3 gap-6">
- <Card className="p-6 lg:col-span-2">
- <h3 className="font-bold flex items-center gap-2"><FileText className="w-4 h-4"/> Profile Overview</h3>
- <div className="mt-4 grid md:grid-cols-2 gap-4 text-[13px]">
- <div className="space-y-2"><div><span className="text-[var(--text-secondary)]">Email:</span> <b>{user?.email}</b></div><div><span className="text-[var(--text-secondary)]">Role:</span> <b className="capitalize">{user?.role}</b></div><div><span className="text-[var(--text-secondary)]">GitHub:</span> {profile?.github? <a href={profile.github} target="_blank" rel="noreferrer" className="text-[#6C63FF] underline">{profile.github}</a> : <span className="text-[var(--text-secondary)]">Not linked</span>}</div><div><span className="text-[var(--text-secondary)]">LinkedIn:</span> {profile?.linkedin? <a href={profile.linkedin} target="_blank" rel="noreferrer" className="text-[#6C63FF] underline">{profile.linkedin}</a> : <span className="text-[var(--text-secondary)]">Not linked</span>}</div><div><span className="text-[var(--text-secondary)]">Bio:</span> <span>{profile?.bio||'—'}</span></div></div>
- <div className="space-y-2">
- <div className="flex items-center gap-2"><Award className="w-4 h-4 text-amber-500"/> Reliability Score <span className="ml-auto font-bold px-2 py-1 rounded-full bg-emerald-500 text-white text-[12px]">{profile?.reliabilityScore ?? user?.reliabilityScore ?? 75}/100</span></div>
- <div className="flex items-center gap-2"><Star className="w-4 h-4 text-amber-400"/> Avg Rating {profile?.averageRating||0} ({profile?.totalReviews||0} reviews)</div>
- <div className="flex flex-wrap gap-2 mt-2">{skills.map(s=> <span key={s.name} className="px-2 py-1 rounded-full bg-[var(--text-primary)] text-[var(--background)] text-[11px] capitalize">{s.name} L{s.level}</span>)}</div>
- </div>
- </div>
- <div className="mt-4 flex gap-2">
- <button onClick={()=>{setErr('');setCertOpen(true);}} className="flex-1 py-3 rounded-full bg-[var(--text-primary)] text-[var(--background)] text-[13px] font-semibold flex items-center justify-center gap-2"><UploadCloud className="w-4 h-4"/> Upload Certificate</button>
- <button onClick={openEdit} className="flex-1 py-3 rounded-full border border-[var(--border)] text-[13px] font-semibold flex items-center justify-center gap-2"><Code2 className="w-4 h-4"/> Link GitHub</button>
- </div>
- </Card>
+  <Card className="p-6 lg:col-span-2">
+  <h3 className="font-bold flex items-center gap-2"><FileText className="w-4 h-4"/> Profile Overview</h3>
+  <div className="mt-4 grid md:grid-cols-2 gap-4 text-[13px]">
+  <div className="space-y-2">
+    <div><span className="text-[var(--text-secondary)]">Email:</span> <b>{user?.email}</b></div>
+    <div><span className="text-[var(--text-secondary)]">Role:</span> <b className="capitalize">{user?.role}</b></div>
+    {(profile?.name||user?.name) && <div><span className="text-[var(--text-secondary)]">Name:</span> <b>{profile?.name||user?.name}</b></div>}
+    {profile?.phone && <div><span className="text-[var(--text-secondary)]">Phone:</span> <span>{profile.phone}</span></div>}
+    {(profile?.college || profile?.year || profile?.branch) && <div><span className="text-[var(--text-secondary)]">Education:</span> <span>{[profile?.college, profile?.year, profile?.branch].filter(Boolean).join(' • ')}</span></div>}
+    {profile?.location && <div><span className="text-[var(--text-secondary)]">Location:</span> <span>{profile.location}</span></div>}
+    <div><span className="text-[var(--text-secondary)]">GitHub:</span> {profile?.github? <a href={profile.github} target="_blank" rel="noreferrer" className="text-[#6C63FF] underline">{profile.github}</a> : <span className="text-[var(--text-secondary)]">Not linked</span>}</div>
+    <div><span className="text-[var(--text-secondary)]">LinkedIn:</span> {profile?.linkedin? <a href={profile.linkedin} target="_blank" rel="noreferrer" className="text-[#6C63FF] underline">{profile.linkedin}</a> : <span className="text-[var(--text-secondary)]">Not linked</span>}</div>
+    <div><span className="text-[var(--text-secondary)]">Portfolio:</span> {profile?.portfolio? <a href={profile.portfolio} target="_blank" rel="noreferrer" className="text-[#6C63FF] underline">Link</a> : <span className="text-[var(--text-secondary)]">Not linked</span>}</div>
+    <div><span className="text-[var(--text-secondary)]">Website:</span> {profile?.website? <a href={profile.website} target="_blank" rel="noreferrer" className="text-[#6C63FF] underline">Link</a> : <span className="text-[var(--text-secondary)]">Not linked</span>}</div>
+    <div><span className="text-[var(--text-secondary)]">Resume:</span> {profile?.resumeUrl? <a href={profile.resumeUrl} target="_blank" rel="noreferrer" className="text-[#6C63FF] underline">View</a> : <span className="text-[var(--text-secondary)]">Not uploaded</span>}</div>
+    <div><span className="text-[var(--text-secondary)]">Bio:</span> <span>{profile?.bio||profile?.about||'—'}</span></div>
+    {profile?.about && profile?.bio && profile.about !== profile.bio && <div><span className="text-[var(--text-secondary)]">About:</span> <span>{profile.about}</span></div>}
+  </div>
+  <div className="space-y-2">
+  <div className="flex items-center gap-2"><Award className="w-4 h-4 text-amber-500"/> Reliability Score <span className="ml-auto font-bold px-2 py-1 rounded-full bg-emerald-500 text-white text-[12px]">{profile?.reliabilityScore ?? user?.reliabilityScore ?? 75}/100</span></div>
+  <div className="flex items-center gap-2"><Star className="w-4 h-4 text-amber-400"/> Avg Rating {profile?.averageRating||0} ({profile?.totalReviews||0} reviews)</div>
+  <div className="flex flex-wrap gap-2 mt-2">{skills.map(s=> <span key={s.name} className="px-2 py-1 rounded-full bg-[var(--text-primary)] text-[var(--background)] text-[11px] capitalize">{s.name} L{s.level}</span>)}</div>
+  </div>
+  </div>
+  <div className="mt-4 flex gap-2">
+  <button onClick={()=>{setErr('');setCertOpen(true);}} className="flex-1 py-3 rounded-full bg-[var(--text-primary)] text-[var(--background)] text-[13px] font-semibold flex items-center justify-center gap-2"><UploadCloud className="w-4 h-4"/> Upload Certificate</button>
+  <button onClick={openEdit} className="flex-1 py-3 rounded-full border border-[var(--border)] text-[13px] font-semibold flex items-center justify-center gap-2"><Pencil className="w-4 h-4"/> Edit More Details</button>
+  </div>
+  </Card>
 
  <Card className="p-6">
  <h3 className="font-bold text-[13px]">Skill Distribution</h3>
@@ -119,7 +167,7 @@ export default function MemberDashboard(){
  <h3 className="font-bold flex items-center gap-2"><Award className="w-4 h-4"/> My Certificates <span className="text-[11px] font-semibold text-[var(--text-secondary)]">({certificates.length})</span></h3>
  <div className="mt-4 grid sm:grid-cols-2 gap-3">
  {certificates.length? certificates.map(c=> <div key={c._id} className="flex items-center gap-3 p-4 rounded-2xl border border-[var(--border)]">
- <span className="w-9 h-9 rounded-full bg-[var(--surface)] flex items-center justify-center">{c.status==='verified'? <BadgeCheck className="w-4 h-4 text-emerald-600"/> : c.status==='rejected'? <X/> : <Clock className="w-4 h-4 text-amber-600"/>}</span>
+  <span className="w-9 h-9 rounded-full bg-[var(--surface)] flex items-center justify-center">{c.status==='verified'? <BadgeCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400"/> : c.status==='rejected'? <X className="w-4 h-4 text-red-600 dark:text-red-400"/> : <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400"/>}</span>
  <div className="min-w-0 flex-1"><div className="font-semibold text-[13px] truncate">{c.title}</div><div className="text-[11px] text-[var(--text-secondary)] truncate">{c.issuer}{c.skill?` • ${c.skill}`:''}</div></div>
  {c.url && <a href={c.url} target="_blank" rel="noreferrer" className="text-[var(--accent)]"><ExternalLink className="w-4 h-4"/></a>}
  <span className={`px-2 py-1 rounded-full text-[10px] font-bold border capitalize ${certStatus(c.status)}`}>{c.status}</span>
@@ -127,17 +175,36 @@ export default function MemberDashboard(){
  </div>
  </Card>
 
- <Modal open={editOpen} onClose={()=>setEditOpen(false)} title="Edit Profile" subtitle="Update your bio, links and skills.">
- <form onSubmit={saveProfile} className="space-y-4">
- <Field label="Bio"><textarea value={pForm.bio} onChange={e=>setPForm({...pForm,bio:e.target.value})} rows={3} className={inputCls} placeholder="Tell teams about yourself..." /></Field>
- <div className="grid sm:grid-cols-2 gap-3">
- <Field label="GitHub URL"><input value={pForm.github} onChange={e=>setPForm({...pForm,github:e.target.value})} className={inputCls} placeholder="https://github.com/..." /></Field>
- <Field label="LinkedIn URL"><input value={pForm.linkedin} onChange={e=>setPForm({...pForm,linkedin:e.target.value})} className={inputCls} placeholder="https://linkedin.com/in/..." /></Field>
- </div>
- <Field label="Skills" hint="Comma separated, e.g. react, node, python"><input value={pForm.skills} onChange={e=>setPForm({...pForm,skills:e.target.value})} className={inputCls} /></Field>
- <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={()=>setEditOpen(false)}>Cancel</Button><Button type="submit" variant="gradient" disabled={busy}>{busy?'Saving...':'Save Profile'}</Button></div>
- </form>
- </Modal>
+  <Modal open={editOpen} onClose={()=>setEditOpen(false)} title="Edit Profile" subtitle="Add more details and your own profile photo. Leave blank if you don't want a photo.">
+  <form onSubmit={saveProfile} className="space-y-4 max-h-[70vh] overflow-auto pr-1">
+  <div className="grid sm:grid-cols-2 gap-3">
+    <Field label="Full Name"><input value={pForm.name} onChange={e=>setPForm({...pForm,name:e.target.value})} className={inputCls} /></Field>
+    <Field label="Phone"><input value={pForm.phone} onChange={e=>setPForm({...pForm,phone:e.target.value})} className={inputCls} placeholder="e.g. +91..." /></Field>
+  </div>
+  <Field label="Profile Photo URL" hint="Paste image URL from your own source. Leave blank to have no photo."><input value={pForm.profilePicture} onChange={e=>setPForm({...pForm,profilePicture:e.target.value})} className={inputCls} placeholder="https://..." /></Field>
+  <div className="grid sm:grid-cols-2 gap-3">
+    <Field label="College/University"><input value={pForm.college} onChange={e=>setPForm({...pForm,college:e.target.value})} className={inputCls} /></Field>
+    <Field label="Year"><input value={pForm.year} onChange={e=>setPForm({...pForm,year:e.target.value})} className={inputCls} placeholder="e.g. 3rd Year" /></Field>
+  </div>
+  <div className="grid sm:grid-cols-2 gap-3">
+    <Field label="Branch/Stream"><input value={pForm.branch} onChange={e=>setPForm({...pForm,branch:e.target.value})} className={inputCls} /></Field>
+    <Field label="Location"><input value={pForm.location} onChange={e=>setPForm({...pForm,location:e.target.value})} className={inputCls} placeholder="City, State" /></Field>
+  </div>
+  <Field label="Bio"><textarea value={pForm.bio} onChange={e=>setPForm({...pForm,bio:e.target.value})} rows={2} className={inputCls} placeholder="Short intro for teams..." /></Field>
+  <Field label="About"><textarea value={pForm.about} onChange={e=>setPForm({...pForm,about:e.target.value})} rows={3} className={inputCls} placeholder="More details about you..." /></Field>
+  <div className="grid sm:grid-cols-2 gap-3">
+    <Field label="GitHub URL"><input value={pForm.github} onChange={e=>setPForm({...pForm,github:e.target.value})} className={inputCls} placeholder="https://github.com/..." /></Field>
+    <Field label="LinkedIn URL"><input value={pForm.linkedin} onChange={e=>setPForm({...pForm,linkedin:e.target.value})} className={inputCls} placeholder="https://linkedin.com/in/..." /></Field>
+  </div>
+  <div className="grid sm:grid-cols-2 gap-3">
+    <Field label="Portfolio URL"><input value={pForm.portfolio} onChange={e=>setPForm({...pForm,portfolio:e.target.value})} className={inputCls} placeholder="https://..." /></Field>
+    <Field label="Website URL"><input value={pForm.website} onChange={e=>setPForm({...pForm,website:e.target.value})} className={inputCls} placeholder="https://..." /></Field>
+  </div>
+  <Field label="Resume URL"><input value={pForm.resumeUrl} onChange={e=>setPForm({...pForm,resumeUrl:e.target.value})} className={inputCls} placeholder="Link to your resume" /></Field>
+  <Field label="Skills" hint="Comma separated, e.g. react, node, python"><input value={pForm.skills} onChange={e=>setPForm({...pForm,skills:e.target.value})} className={inputCls} /></Field>
+  <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={()=>setEditOpen(false)}>Cancel</Button><Button type="submit" variant="gradient" disabled={busy}>{busy?'Saving...':'Save Profile'}</Button></div>
+  </form>
+  </Modal>
 
  <Modal open={certOpen} onClose={()=>setCertOpen(false)} title="Upload Certificate" subtitle="Admin will verify it and update your badge.">
  <form onSubmit={saveCert} className="space-y-4">
