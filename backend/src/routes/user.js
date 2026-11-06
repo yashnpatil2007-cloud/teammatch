@@ -9,10 +9,15 @@ const {
   adminUpdateUser,
   removeUser,
   addCertificate,
+  uploadCertificateFile,
+  deleteCertificate,
+  uploadResumeFile,
+  deleteResume,
   pendingCertificates,
   verifyCertificate,
 } = require('../controllers/userController');
 const { protect, authorize } = require('../middleware/auth');
+const { uploadCertificate, uploadResume } = require('../middleware/upload');
 const router = express.Router();
 
 router.get('/leaderboard', getLeaderboard);
@@ -20,6 +25,10 @@ router.get('/me/quiz-history', protect, quizHistory);
 router.get('/certificates/pending', protect, authorize('admin'), pendingCertificates);
 router.put('/certificates/:certId/verify', protect, authorize('admin'), verifyCertificate);
 router.post('/certificates', protect, addCertificate);
+router.post('/certificates/upload', protect, uploadCertificate.single('file'), uploadCertificateFile);
+router.delete('/certificates/:certId', protect, deleteCertificate);
+router.post('/resume/upload', protect, uploadResume.single('resume'), uploadResumeFile);
+router.delete('/resume', protect, deleteResume);
 router.put('/profile', protect, updateProfile);
 router.post('/quiz', protect, quizSubmit);
 router.get('/', protect, listUsers);

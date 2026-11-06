@@ -1,14 +1,42 @@
 const { db, save, uid, now } = require('../data/store');
 const { asyncHandler } = require('../utils/generateToken');
-const { teamCoverage, calculateMatch } = require('../services/matchingEngine');
+const { createNotification } = require('../utils/notify');
+const {
+  teamCoverage,
+  calculateMatch,
+  calculateComprehensiveMatch,
+  generateAlternativeCombinations,
+  DEFAULT_WEIGHTS,
+} = require('../services/matchingEngine');
 
 const findUser = (id) => db.users.find((u) => u._id === id);
 const findProblem = (id) => db.problems.find((p) => p._id === id);
 
+const getProblemCapacity = (problem) => {
+  if (!problem || !problem.teamSize) return 4;
+  if (typeof problem.teamSize === 'number') return problem.teamSize;
+  if (typeof problem.teamSize === 'object') return problem.teamSize.max || problem.teamSize.min || 4;
+  const num = parseInt(problem.teamSize, 10);
+  return isNaN(num) ? 4 : num;
+};
+
 const briefUser = (id) => {
   const u = findUser(id);
   if (!u) return id;
-  return { _id: u._id, name: u.name, role: u.role, avatar: u.avatar, skills: u.skills, reliabilityScore: u.reliabilityScore };
+  return {
+    _id: u._id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    avatar: u.avatar,
+    skills: u.skills || [],
+    reliabilityScore: u.reliabilityScore || 75,
+    averageRating: u.averageRating || 0,
+    totalReviews: u.totalReviews || 0,
+    personality: u.personality || null,
+    aptitudeScore: u.aptitudeScore || 0,
+    aptitudeBadge: u.aptitudeBadge || '',
+  };
 };
 
 const populateTeam = (t) => {
@@ -16,10 +44,22 @@ const populateTeam = (t) => {
   const problem = findProblem(t.problem);
   return {
     ...t,
-    problem: problem ? { _id: problem._id, title: problem.title, category: problem.category, requiredSkills: problem.requiredSkills, requiredRoles: problem.requiredRoles, teamSize: problem.teamSize } : t.problem,
+    problem: problem
+      ? {
+          _id: problem._id,
+          title: problem.title,
+          category: problem.category,
+          requiredSkills: problem.requiredSkills || [],
+          requiredRoles: problem.requiredRoles || [],
+          teamSize: getProblemCapacity(problem),
+        }
+      : t.problem,
     leader: briefUser(t.leader),
     members: (t.members || []).map(briefUser),
-    invites: (t.invites || []).map((inv) => ({ ...inv, user: briefUser(inv.user) })),
+    invites: (t.invites || []).map((inv) => ({
+      ...inv,
+      user: briefUser(inv.user),
+    })),
   };
 };
 
@@ -32,9 +72,18 @@ const recompute = (team) => {
   team.balanceScore = analysis.balance;
   team.missingSkills = analysis.missingSkills;
   team.missingRoles = analysis.missingRoles;
+  team.duplicateSkills = analysis.duplicateSkills;
+  team.archetypeDistribution = analysis.archetypeDistribution;
+  team.recommendedArchetypes = analysis.recommendedArchetypes;
+
   const leader = findUser(team.leader);
   const avg = memberObjs.length
-    ? Math.round(memberObjs.reduce((sum, m) => sum + calculateMatch(problem.requiredSkills, m.skills || []).pct, 0) / memberObjs.length)
+    ? Math.round(
+        memberObjs.reduce(
+          (sum, m) => sum + calculateMatch(problem.requiredSkills, m.skills || []).pct,
+          0
+        ) / memberObjs.length
+      )
     : 0;
   team.matchPercentage = avg;
   team.status = team.coverage >= 95 ? 'complete' : 'forming';
@@ -52,7 +101,12 @@ const getTeams = asyncHandler(async (req, res) => {
 
 const getMine = asyncHandler(async (req, res) => {
   const me = req.user._id;
-  const list = db.teams.filter((t) => (t.members || []).includes(me) || t.leader === me || (t.invites || []).some((i) => i.user === me));
+  const list = db.teams.filter(
+    (t) =>
+      (t.members || []).includes(me) ||
+      t.leader === me ||
+      (t.invites || []).some((i) => (i.user?._id || i.user) === me)
+  );
   res.json(list.map(populateTeam));
 });
 
@@ -64,95 +118,383 @@ const getOne = asyncHandler(async (req, res) => {
 
 const createTeam = asyncHandler(async (req, res) => {
   const { name, problemId } = req.body;
-  const problem = findProblem(problemId);
-  if (!problem) return res.status(400).json({ message: 'A valid problemId is required' });
+  if (!name || !String(name).trim()) return res.status(400).json({ message: 'Team name is required' });
+  const problem = findProblem(problemId) || db.problems[0];
+  if (!problem) return res.status(400).json({ message: 'Valid problem statement required' });
 
-  const leaderId = req.user.role === 'leader' ? req.user._id : db.users.find((u) => u.role === 'leader')?._id || req.user._id;
+  const leaderUser = db.users.find((u) => u._id === req.user._id);
+  const teamId = 't-' + uid().slice(0, 8);
   const team = {
-    _id: 't-' + uid().slice(0, 10),
-    name: name || `Team ${db.teams.length + 1}`,
-    problem: problemId,
-    leader: leaderId,
-    members: [leaderId],
+    _id: teamId,
+    name: String(name).trim(),
+    problem: problem._id,
+    leader: req.user._id,
+    leaderName: leaderUser?.name,
+    members: [req.user._id],
     invites: [],
     coverage: 0,
-    balanceScore: 0,
+    balanceScore: 1,
     matchPercentage: 0,
-    missingSkills: problem.requiredSkills.map((s) => s.name),
+    missingSkills: (problem.requiredSkills || []).map((s) => s.name),
     missingRoles: problem.requiredRoles || [],
     status: 'forming',
     createdAt: now(),
   };
+
   recompute(team);
   db.teams.push(team);
   save();
   res.status(201).json(populateTeam(team));
 });
 
+/**
+ * Smart Teammate Matching Endpoint 2.0
+ * GET /api/teams/match?problemId=...&teamId=...&minMatch=...&role=...&onlyVerified=...
+ */
 const match = asyncHandler(async (req, res) => {
-  const { problemId } = req.query;
-  const problem = findProblem(problemId) || db.problems[0];
-  if (!problem) return res.status(404).json({ message: 'No problem statements available' });
+  const { problemId, teamId, minMatch, role, onlyVerified } = req.query;
 
-  const pool = db.users.filter((u) => ['member', 'leader'].includes(u.role));
-  const recommendations = pool
-    .map((u) => {
-      const m = calculateMatch(problem.requiredSkills, u.skills || []);
-      const roleFit = (problem.requiredRoles || []).filter((r) =>
-        (u.skills || []).some((s) => r.toLowerCase().includes(s.name.toLowerCase()))
-      );
-      return {
-        user: { _id: u._id, name: u.name, role: u.role, avatar: u.avatar, skills: u.skills, github: u.github },
-        match: m.pct,
-        missing: m.missing,
-        roleFit,
-        reliabilityScore: u.reliabilityScore,
-      };
-    })
-    .sort((a, b) => b.match - a.match || b.reliabilityScore - a.reliabilityScore);
+  let team = null;
+  let problem = null;
 
-  res.json({ problem, recommendations });
+  if (teamId) {
+    team = db.teams.find((t) => t._id === teamId);
+    if (team) {
+      problem = findProblem(team.problem);
+    }
+  }
+
+  if (!problem && problemId) {
+    problem = findProblem(problemId);
+  }
+
+  if (!problem) {
+    problem = db.problems[0];
+  }
+
+  if (!problem) {
+    return res.status(404).json({ message: 'No problem statements available' });
+  }
+
+  // Build team context if matching for an existing team
+  let teamContext = null;
+  const excludedUserIds = new Set();
+
+  if (team) {
+    const leaderUser = findUser(team.leader);
+    const memberUsers = (team.members || []).map(findUser).filter(Boolean);
+    const existingCoverage = teamCoverage(problem.requiredSkills, memberUsers);
+
+    teamContext = {
+      teamId: team._id,
+      teamName: team.name,
+      leader: leaderUser,
+      members: memberUsers,
+      missingSkills: existingCoverage.missingSkills,
+      currentCoverage: existingCoverage.coverage,
+      currentBalance: existingCoverage.balance,
+      archetypeDistribution: existingCoverage.archetypeDistribution,
+    };
+
+    // Exclude members already in this team
+    (team.members || []).forEach((m) => excludedUserIds.add(String(m._id || m)));
+    excludedUserIds.add(String(team.leader?._id || team.leader));
+
+    // Exclude pending invites
+    (team.invites || []).forEach((inv) => {
+      if (inv.status === 'pending') {
+        excludedUserIds.add(String(inv.user?._id || inv.user));
+      }
+    });
+  }
+
+  // Count active team load per user
+  const activeTeamsCount = new Map();
+  db.teams.forEach((t) => {
+    (t.members || []).forEach((m) => {
+      const id = String(m._id || m);
+      activeTeamsCount.set(id, (activeTeamsCount.get(id) || 0) + 1);
+    });
+  });
+
+  // Candidate pool: all students/members (exclude currently logged-in user if team leader, plus existing members)
+  const pool = db.users.filter(
+    (u) =>
+      ['member', 'leader'].includes(u.role) &&
+      !excludedUserIds.has(u._id) &&
+      u._id !== req.user._id
+  );
+
+  let recommendations = pool.map((u) => {
+    const enrichedCandidate = {
+      ...u,
+      activeTeamsCount: activeTeamsCount.get(u._id) || 0,
+    };
+
+    const evaluation = calculateComprehensiveMatch(problem, enrichedCandidate, teamContext);
+
+    return {
+      user: {
+        _id: u._id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        avatar: u.avatar,
+        skills: u.skills || [],
+        github: u.github,
+        reliabilityScore: u.reliabilityScore || 75,
+        averageRating: u.averageRating || 0,
+        totalReviews: u.totalReviews || 0,
+        aptitudeScore: u.aptitudeScore || 0,
+        aptitudeBadge: u.aptitudeBadge || '',
+        personality: u.personality || null,
+      },
+      match: evaluation.compositeScore, // Backward compatibility
+      compositeScore: evaluation.compositeScore,
+      confidence: evaluation.confidence,
+      isProvisional: evaluation.isProvisional,
+      missingAssessments: evaluation.missingAssessments,
+      breakdown: evaluation.breakdown,
+      missing: evaluation.missing,
+      gapsClosed: evaluation.gapsClosed,
+      roleFit: evaluation.roleFit,
+      aiExplanation: evaluation.aiExplanation,
+    };
+  });
+
+  // Apply filters
+  if (minMatch) {
+    const minThreshold = Number(minMatch) || 0;
+    recommendations = recommendations.filter((r) => r.compositeScore >= minThreshold);
+  }
+
+  if (role) {
+    const roleQuery = String(role).toLowerCase();
+    recommendations = recommendations.filter((r) =>
+      r.roleFit.some((rf) => rf.toLowerCase().includes(roleQuery))
+    );
+  }
+
+  if (onlyVerified === 'true' || onlyVerified === true) {
+    recommendations = recommendations.filter(
+      (r) => !r.isProvisional && (r.user.skills || []).some((s) => s.badge === 'Certified' || s.verifiedScore >= 60)
+    );
+  }
+
+  // Sort by composite score descending, then by reliability score
+  recommendations.sort(
+    (a, b) => b.compositeScore - a.compositeScore || b.user.reliabilityScore - a.user.reliabilityScore
+  );
+
+  // Generate 2-3 optimal alternative combinations
+  const existingTeamMembers = teamContext ? teamContext.members : [];
+  const targetSize = getProblemCapacity(problem);
+  const alternativeCombinations = generateAlternativeCombinations(
+    problem,
+    recommendations,
+    existingTeamMembers,
+    targetSize
+  );
+
+  // Calculate current team analysis if team exists
+  const teamAnalysis = teamContext
+    ? {
+        coverage: teamContext.currentCoverage,
+        balance: teamContext.currentBalance,
+        missingSkills: teamContext.missingSkills,
+        archetypeDistribution: teamContext.archetypeDistribution,
+        isAtCapacity: (team.members || []).length >= targetSize,
+        maxCapacity: targetSize,
+      }
+    : null;
+
+  res.json({
+    problem: {
+      _id: problem._id,
+      title: problem.title,
+      category: problem.category,
+      difficulty: problem.difficulty,
+      requiredSkills: problem.requiredSkills || [],
+      requiredRoles: problem.requiredRoles || [],
+      teamSize: targetSize,
+    },
+    team: team ? populateTeam(team) : null,
+    teamAnalysis,
+    recommendations,
+    alternativeCombinations,
+    weightsConfig: DEFAULT_WEIGHTS,
+  });
 });
 
+/**
+ * Team Strength Analyzer Endpoint
+ * GET /api/teams/:teamId/analyze
+ */
 const analyze = asyncHandler(async (req, res) => {
   const team = db.teams.find((t) => t._id === req.params.teamId);
   if (!team) return res.status(404).json({ message: 'Team not found' });
   const problem = findProblem(team.problem);
   const members = (team.members || []).map(findUser).filter(Boolean);
   const analysis = teamCoverage(problem ? problem.requiredSkills : [], members);
-  res.json({ team: populateTeam(team), problem, ...analysis });
+
+  res.json({
+    team: populateTeam(team),
+    problem,
+    ...analysis,
+  });
 });
 
+/**
+ * Team Invitation by Leader
+ * POST /api/teams/:teamId/invite
+ */
 const invite = asyncHandler(async (req, res) => {
   const team = db.teams.find((t) => t._id === req.params.teamId);
   if (!team) return res.status(404).json({ message: 'Team not found' });
+  const problem = findProblem(team.problem);
+  const maxCapacity = getProblemCapacity(problem);
+
+  if ((team.members || []).length >= maxCapacity) {
+    return res.status(400).json({
+      message: `Team is already at full capacity (${maxCapacity} members).`,
+    });
+  }
+
   const { userId } = req.body;
   if (!findUser(userId)) return res.status(404).json({ message: 'User not found' });
-  if ((team.members || []).includes(userId)) return res.status(400).json({ message: 'User is already a member' });
-  if ((team.invites || []).some((i) => i.user === userId && i.status === 'pending')) {
-    return res.status(400).json({ message: 'Invite already pending' });
+  if ((team.members || []).includes(userId)) {
+    return res.status(400).json({ message: 'User is already a team member' });
   }
+
   team.invites = team.invites || [];
-  team.invites.push({ user: userId, status: 'pending', invitedAt: now() });
+  const existingInvite = team.invites.find((i) => (i.user?._id || i.user) === userId);
+
+  if (existingInvite && existingInvite.status === 'pending') {
+    return res.status(400).json({ message: 'An invite is already pending for this student.' });
+  }
+
+  if (existingInvite) {
+    existingInvite.status = 'pending';
+    existingInvite.invitedAt = now();
+  } else {
+    team.invites.push({
+      _id: 'inv-' + uid().slice(0, 8),
+      user: userId,
+      status: 'pending',
+      invitedAt: now(),
+    });
+  }
+
+  createNotification({
+    recipient: userId,
+    sender: req.user._id,
+    type: 'invite_received',
+    title: 'Team Invitation',
+    message: `${req.user.name} invited you to join team "${team.name}".`,
+    link: '/dashboard/teams',
+  });
+
   save();
-  res.json({ message: 'Invite sent', team: populateTeam(team) });
+  res.json({ message: 'Team invitation sent successfully', team: populateTeam(team) });
 });
 
+/**
+ * Student Join Request
+ * POST /api/teams/:teamId/request-join
+ */
+const requestJoin = asyncHandler(async (req, res) => {
+  const team = db.teams.find((t) => t._id === req.params.teamId);
+  if (!team) return res.status(404).json({ message: 'Team not found' });
+  const problem = findProblem(team.problem);
+  const maxCapacity = getProblemCapacity(problem);
+
+  if ((team.members || []).length >= maxCapacity) {
+    return res.status(400).json({
+      message: `Team is already at full capacity (${maxCapacity} members).`,
+    });
+  }
+
+  const userId = req.user._id;
+  if ((team.members || []).includes(userId) || team.leader === userId) {
+    return res.status(400).json({ message: 'You are already a member of this team.' });
+  }
+
+  team.invites = team.invites || [];
+  const existing = team.invites.find((i) => (i.user?._id || i.user) === userId);
+  if (existing && existing.status === 'pending') {
+    return res.status(400).json({ message: 'You already have a pending invite or request for this team.' });
+  }
+
+  team.invites.push({
+    _id: 'inv-' + uid().slice(0, 8),
+    user: userId,
+    status: 'requested',
+    type: 'join_request',
+    invitedAt: now(),
+  });
+
+  const leaderId = String(team.leader?._id || team.leader);
+  createNotification({
+    recipient: leaderId,
+    sender: req.user._id,
+    type: 'join_requested',
+    title: 'New Join Request',
+    message: `${req.user.name} has requested to join your team "${team.name}".`,
+    link: `/dashboard/teams/${team._id}/workspace`,
+  });
+
+  save();
+  res.status(201).json({
+    message: 'Join request submitted to team leader for review.',
+    team: populateTeam(team),
+  });
+});
+
+/**
+ * Respond to Invitation or Join Request
+ * POST /api/teams/:teamId/respond
+ */
 const respondInvite = asyncHandler(async (req, res) => {
   const team = db.teams.find((t) => t._id === req.params.teamId);
   if (!team) return res.status(404).json({ message: 'Team not found' });
-  const { userId, action } = req.body;
-  const invite = (team.invites || []).find((i) => i.user === userId);
+  const problem = findProblem(team.problem);
+  const maxCapacity = getProblemCapacity(problem);
+
+  const { userId, action } = req.body; // action: 'accept' | 'decline' | 'approve' | 'reject'
+  const invite = (team.invites || []).find((i) => (i.user?._id || i.user) === userId);
   if (!invite) return res.status(404).json({ message: 'Invite not found' });
-  if (action === 'accept') {
+
+  if (action === 'accept' || action === 'approve') {
+    if ((team.members || []).length >= maxCapacity) {
+      return res.status(400).json({
+        message: `Cannot accept member: team is at full capacity (${maxCapacity} members).`,
+      });
+    }
     invite.status = 'accepted';
     if (!team.members.includes(userId)) team.members.push(userId);
+    createNotification({
+      recipient: userId,
+      sender: req.user._id,
+      type: 'join_accepted',
+      title: 'Joined Team Successfully',
+      message: `You are now a confirmed member of team "${team.name}"!`,
+      link: `/dashboard/teams/${team._id}/workspace`,
+    });
   } else {
     invite.status = 'rejected';
+    createNotification({
+      recipient: userId,
+      sender: req.user._id,
+      type: 'join_rejected',
+      title: 'Team Application Update',
+      message: `Your invitation or join request for "${team.name}" was declined.`,
+      link: '/dashboard/matching',
+    });
   }
+
   recompute(team);
   save();
-  res.json({ message: `Invite ${action}ed`, team: populateTeam(team) });
+  res.json({ message: `Invitation ${action}ed`, team: populateTeam(team) });
 });
 
 const canManage = (team, user) =>
@@ -193,11 +535,25 @@ const removeMember = asyncHandler(async (req, res) => {
   if (String(team.leader?._id || team.leader) === userId) {
     return res.status(400).json({ message: 'The leader cannot be removed. Delete the team instead.' });
   }
-  team.members = (team.members || []).filter((m) => m !== userId);
-  team.invites = (team.invites || []).filter((i) => i.user !== userId);
+  team.members = (team.members || []).filter((m) => (m._id || m) !== userId);
+  team.invites = (team.invites || []).filter((i) => (i.user?._id || i.user) !== userId);
   recompute(team);
   save();
   res.json({ message: 'Member removed', team: populateTeam(team) });
 });
 
-module.exports = { getTeams, getMine, getOne, createTeam, updateTeam, removeTeam, removeMember, match, analyze, invite, respondInvite, populateTeam };
+module.exports = {
+  getTeams,
+  getMine,
+  getOne,
+  createTeam,
+  updateTeam,
+  removeTeam,
+  removeMember,
+  match,
+  analyze,
+  invite,
+  requestJoin,
+  respondInvite,
+  populateTeam,
+};

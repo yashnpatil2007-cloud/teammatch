@@ -26,6 +26,17 @@ API.interceptors.response.use(
 export const errMsg = (e) =>
   e?.response?.data?.message || e?.message || 'Something went wrong. Please try again.';
 
+export const resolveFileUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const backendBase = apiBase.replace(/\/api\/?$/, '');
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${backendBase}${cleanPath}`;
+};
+
 export const authApi = {
   login: (email, password) => API.post('/auth/login', { email, password }).then((r) => r.data),
   register: (payload) => API.post('/auth/register', payload).then((r) => r.data),
@@ -49,10 +60,26 @@ export const teamApi = {
   update: (id, payload) => API.put(`/teams/${id}`, payload).then((r) => r.data),
   remove: (id) => API.delete(`/teams/${id}`).then((r) => r.data),
   removeMember: (id, userId) => API.post(`/teams/${id}/remove-member`, { userId }).then((r) => r.data),
-  match: (problemId) => API.get('/teams/match', { params: { problemId } }).then((r) => r.data),
+  match: (paramsOrProblemId) => {
+    const params =
+      typeof paramsOrProblemId === 'object' && paramsOrProblemId !== null
+        ? paramsOrProblemId
+        : { problemId: paramsOrProblemId };
+    return API.get('/teams/match', { params }).then((r) => r.data);
+  },
+  requestJoin: (teamId) => API.post(`/teams/${teamId}/request-join`).then((r) => r.data),
   analyze: (teamId) => API.get(`/teams/${teamId}/analyze`).then((r) => r.data),
   invite: (teamId, userId) => API.post(`/teams/${teamId}/invite`, { userId }).then((r) => r.data),
   respond: (teamId, userId, action) => API.post(`/teams/${teamId}/respond`, { userId, action }).then((r) => r.data),
+  workspace: (teamId) => API.get(`/teams/${teamId}/workspace`).then((r) => r.data),
+  createTask: (teamId, payload) => API.post(`/teams/${teamId}/tasks`, payload).then((r) => r.data),
+  updateTask: (teamId, taskId, payload) => API.put(`/teams/${teamId}/tasks/${taskId}`, payload).then((r) => r.data),
+  deleteTask: (teamId, taskId) => API.delete(`/teams/${teamId}/tasks/${taskId}`).then((r) => r.data),
+  addMilestone: (teamId, payload) => API.post(`/teams/${teamId}/milestones`, payload).then((r) => r.data),
+  updateMilestone: (teamId, milestoneId, payload) => API.put(`/teams/${teamId}/milestones/${milestoneId}`, payload).then((r) => r.data),
+  addResource: (teamId, payload) => API.post(`/teams/${teamId}/resources`, payload).then((r) => r.data),
+  messages: (teamId) => API.get(`/teams/${teamId}/messages`).then((r) => r.data),
+  postMessage: (teamId, text) => API.post(`/teams/${teamId}/messages`, { text }).then((r) => r.data),
 };
 
 export const userApi = {
@@ -65,8 +92,19 @@ export const userApi = {
   update: (id, payload) => API.put(`/users/${id}`, payload).then((r) => r.data),
   remove: (id) => API.delete(`/users/${id}`).then((r) => r.data),
   addCertificate: (payload) => API.post('/users/certificates', payload).then((r) => r.data),
-  pendingCertificates: () => API.get('/users/certificates/pending').then((r) => r.data),
-  verifyCertificate: (certId, action) => API.put(`/users/certificates/${certId}/verify`, { action }).then((r) => r.data),
+  uploadCertificate: (formData) =>
+    API.post('/users/certificates/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data),
+  deleteCertificate: (certId) => API.delete(`/users/certificates/${certId}`).then((r) => r.data),
+  uploadResume: (formData) =>
+    API.post('/users/resume/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data),
+  deleteResume: () => API.delete('/users/resume').then((r) => r.data),
+  pendingCertificates: (params) => API.get('/users/certificates/pending', { params }).then((r) => r.data),
+  verifyCertificate: (certId, action, rejectionReason) =>
+    API.put(`/users/certificates/${certId}/verify`, { action, rejectionReason }).then((r) => r.data),
 };
 
 export const reviewApi = {
@@ -85,8 +123,43 @@ export const quizApi = {
   grade: (skill, answers) => API.post('/quizzes/grade', { skill, answers }).then((r) => r.data),
 };
 
+export const assessmentApi = {
+  overview: () => API.get('/assessments/overview').then((r) => r.data),
+  aptitudeQuestions: () => API.get('/assessments/aptitude/questions').then((r) => r.data),
+  submitAptitude: (payload) => API.post('/assessments/aptitude/submit', payload).then((r) => r.data),
+  personalityQuestions: () => API.get('/assessments/personality/questions').then((r) => r.data),
+  submitPersonality: (payload) => API.post('/assessments/personality/submit', payload).then((r) => r.data),
+  technicalSkills: () => API.get('/assessments/technical/skills').then((r) => r.data),
+  technicalQuestions: (skill) => API.get(`/assessments/technical/${skill}/questions`).then((r) => r.data),
+  submitTechnical: (payload) => API.post('/assessments/technical/submit', payload).then((r) => r.data),
+  myHistory: (params) => API.get('/assessments/my-history', { params }).then((r) => r.data),
+  adminStats: () => API.get('/assessments/admin/stats').then((r) => r.data),
+  addAdminQuestion: (payload) => API.post('/assessments/admin/questions', payload).then((r) => r.data),
+};
+
 export const statsApi = {
   get: () => API.get('/stats').then((r) => r.data),
+  admin: () => API.get('/stats/admin').then((r) => r.data),
+};
+
+export const submissionApi = {
+  submit: (payload) => API.post('/submissions', payload).then((r) => r.data),
+  getByTeam: (teamId) => API.get(`/submissions/team/${teamId}`).then((r) => r.data),
+  list: (params) => API.get('/submissions', { params }).then((r) => r.data),
+  getOne: (id) => API.get(`/submissions/${id}`).then((r) => r.data),
+  review: (id, payload) => API.post(`/submissions/${id}/review`, payload).then((r) => r.data),
+  upload: (formData) =>
+    API.post('/submissions/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data),
+};
+
+export const notificationApi = {
+  list: (params) => API.get('/notifications', { params }).then((r) => r.data),
+  unreadCount: () => API.get('/notifications/unread-count').then((r) => r.data),
+  markAsRead: (id) => API.put(`/notifications/${id}/read`).then((r) => r.data),
+  markAllAsRead: () => API.put('/notifications/read-all').then((r) => r.data),
+  delete: (id) => API.delete(`/notifications/${id}`).then((r) => r.data),
 };
 
 export default API;

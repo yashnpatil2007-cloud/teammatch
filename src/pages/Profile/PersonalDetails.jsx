@@ -18,6 +18,8 @@ export default function PersonalDetails() {
     about: '',
     college: '',
     course: '',
+    branch: '',
+    year: '',
     phone: '',
     location: '',
     github: '',
@@ -41,6 +43,8 @@ export default function PersonalDetails() {
       about: u.about || '',
       college: u.college || '',
       course: u.course || u.branch || '',
+      branch: u.branch || u.course || '',
+      year: u.year || '',
       phone: u.phone || '',
       location: u.location || '',
       github: u.github || '',
@@ -58,12 +62,16 @@ export default function PersonalDetails() {
     setErr('');
     setMsg('');
     try {
+      const existingSkills = Array.isArray(user?.skills) ? user.skills : [];
       const skillsArr = form.skills
         ? String(form.skills)
             .split(',')
-            .map((s) => s.trim())
+            .map((s) => s.trim().toLowerCase())
             .filter(Boolean)
-            .map((name) => ({ name, level: 1 }))
+            .map((name) => {
+              const existing = existingSkills.find((s) => s.name.toLowerCase() === name);
+              return existing || { name, level: 5, badge: 'Bronze' };
+            })
         : [];
       const payload = {
         name: form.name,
@@ -73,7 +81,8 @@ export default function PersonalDetails() {
         about: form.about,
         college: form.college,
         course: form.course,
-        branch: form.course,
+        branch: form.branch || form.course,
+        year: form.year,
         phone: form.phone,
         location: form.location,
         github: form.github,
@@ -149,12 +158,15 @@ export default function PersonalDetails() {
             </Field>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-3">
+          <div className="grid sm:grid-cols-3 gap-3">
             <Field label="College / University">
               <input value={form.college} onChange={(e) => setForm({ ...form, college: e.target.value })} className={inputCls} />
             </Field>
-            <Field label="Course / Field of Study">
-              <input value={form.course} onChange={(e) => setForm({ ...form, course: e.target.value })} className={inputCls} placeholder="B.Tech, B.Sc, etc." />
+            <Field label="Course / Branch">
+              <input value={form.course} onChange={(e) => setForm({ ...form, course: e.target.value, branch: e.target.value })} className={inputCls} placeholder="B.Tech, CSE, etc." />
+            </Field>
+            <Field label="Year">
+              <input value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} className={inputCls} placeholder="e.g. 3rd Year" />
             </Field>
           </div>
 

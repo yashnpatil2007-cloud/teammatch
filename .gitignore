@@ -28,3 +28,18 @@ backend/src/data/db.json
 
 # Local Netlify folder
 .netlify
+.backup_phase1
+.backup_phase2
+
+# Environments
+backend/.env
+backend/.env.*
+
+# Uploads and temporary test files
+backend/uploads/certificates/*
+!backend/uploads/certificates/.gitkeep
+backend/uploads/resumes/*
+!backend/uploads/resumes/.gitkeep
+backend/uploads/submissions/*
+!backend/uploads/submissions/.gitkeep
+scratch/

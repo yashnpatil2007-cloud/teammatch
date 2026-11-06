@@ -19,6 +19,9 @@ const authPayload = (user) => ({
   averageRating: user.averageRating,
   skills: user.skills,
   github: user.github,
+  personality: user.personality || null,
+  aptitudeScore: user.aptitudeScore || 0,
+  aptitudeBadge: user.aptitudeBadge || '',
   token: generateToken(user._id, user.role),
 });
 
@@ -27,22 +30,32 @@ const register = asyncHandler(async (req, res) => {
   if (!name || !email || !password || !role) {
     return res.status(400).json({ message: 'Missing required fields: name, email, password, role' });
   }
+  const cleanName = String(name).trim();
+  if (cleanName.length < 2) {
+    return res.status(400).json({ message: 'Name must be at least 2 characters long' });
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const cleanEmail = String(email).trim().toLowerCase();
+  if (!emailRegex.test(cleanEmail)) {
+    return res.status(400).json({ message: 'Please provide a valid email address' });
+  }
   if (!VALID_ROLES.includes(role)) {
     return res.status(400).json({ message: 'Invalid role' });
   }
   if (String(password).length < 6) {
     return res.status(400).json({ message: 'Password must be at least 6 characters' });
   }
-  const key = String(email).toLowerCase();
+  const key = cleanEmail;
   if (db.users.find((u) => u.email === key)) {
     return res.status(400).json({ message: 'An account with this email already exists' });
   }
 
+  const hashedPassword = await bcrypt.hash(String(password), 10);
   const user = {
     _id: 'u-' + uid().slice(0, 10),
     name,
     email: key,
-    password: bcrypt.hashSync(String(password), 10),
+    password: hashedPassword,
     role,
     avatar: `https://i.pravatar.cc/100?img=${(db.users.length % 60) + 1}`,
     bio: '',
@@ -68,7 +81,11 @@ const login = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Email and password are required' });
   }
   const user = db.users.find((u) => u.email === String(email).toLowerCase());
-  if (!user || !bcrypt.compareSync(String(password), user.password)) {
+  if (!user) {
+    return res.status(401).json({ message: 'Invalid email or password' });
+  }
+  const isMatch = await bcrypt.compare(String(password), user.password);
+  if (!isMatch) {
     return res.status(401).json({ message: 'Invalid email or password' });
   }
   res.json(authPayload(user));

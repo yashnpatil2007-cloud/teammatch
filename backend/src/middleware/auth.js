@@ -17,10 +17,9 @@ const protect = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = db.users.find((u) => u._id === decoded.id);
     if (!user) {
-      req.user = { _id: decoded.id, id: decoded.id, role: decoded.role, email: decoded.email, name: decoded.name };
-    } else {
-      req.user = publicUser(user);
+      return res.status(401).json({ message: 'User no longer exists or session expired' });
     }
+    req.user = publicUser(user);
     next();
   } catch {
     return res.status(401).json({ message: 'Not authorized, token failed' });

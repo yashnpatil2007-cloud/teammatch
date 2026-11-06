@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import ProblemFormModal from '../../components/forms/ProblemFormModal';
+import SubmissionsReviewPanel from './SubmissionsReviewPanel';
 import { problemApi, statsApi, errMsg } from '../../services/api';
-import { FileText, Users, BarChart3, Trophy, UploadCloud, Plus, RefreshCw, Pencil, Trash2 } from 'lucide-react';
+import { FileText, Users, BarChart3, Trophy, UploadCloud, Plus, RefreshCw, Pencil, Trash2, FileCheck } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 const COLORS = ['#6C63FF', '#60A5FA', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6'];
 
 export default function OrganizerDashboard(){
+ const [tab, setTab] = useState('overview'); // 'overview' | 'submissions'
  const [problems,setProblems]=useState([]);
  const [stats,setStats]=useState(null);
  const [form,setForm]=useState({title:'',description:'',category:'AI/ML',prize:'₹2L',teamMin:3,teamMax:5});
@@ -72,6 +74,29 @@ export default function OrganizerDashboard(){
  {stats_cards.map(s=> <Card key={s.label} className="p-5 flex items-center gap-4"><div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center`}><s.icon className="w-5 h-5 text-[var(--background)]"/></div><div><div className="text-[20px] font-extrabold leading-none">{s.value}</div><div className="text-[11px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">{s.label}</div></div></Card>)}
  </div>
 
+ <div className="flex gap-2 p-1.5 rounded-2xl bg-[var(--surface)] border border-[var(--border)] max-w-md">
+   <button
+     onClick={() => setTab('overview')}
+     className={`flex-1 py-2 rounded-xl text-[12px] font-extrabold transition-all flex items-center justify-center gap-2 ${
+       tab === 'overview' ? 'bg-[var(--card)] shadow-sm text-[#6C63FF]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+     }`}
+   >
+     <FileText className="w-4 h-4" /> Problems & Hackathons
+   </button>
+   <button
+     onClick={() => setTab('submissions')}
+     className={`flex-1 py-2 rounded-xl text-[12px] font-extrabold transition-all flex items-center justify-center gap-2 ${
+       tab === 'submissions' ? 'bg-[var(--card)] shadow-sm text-[#6C63FF]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+     }`}
+   >
+     <FileCheck className="w-4 h-4" /> Submissions Queue
+   </button>
+ </div>
+
+ {tab === 'submissions' ? (
+   <SubmissionsReviewPanel />
+ ) : (
+   <>
  <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-6">
  <Card className="p-6">
  <h3 className="font-bold flex items-center gap-2"><UploadCloud className="w-4 h-4"/> Upload Problem Statement</h3>
@@ -118,6 +143,8 @@ export default function OrganizerDashboard(){
  </table>
  </div>
  </Card>
+ </>
+ )}
 
  <ProblemFormModal open={modalOpen} onClose={()=>setModalOpen(false)} initial={editing} onSaved={()=>load()} />
  </div>

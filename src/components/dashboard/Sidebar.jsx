@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, UsersRound, Brain, Trophy, Star, Shield, GraduationCap, Award } from 'lucide-react';
+import { LayoutDashboard, FileText, UsersRound, Brain, Trophy, Star, Shield, GraduationCap, Award, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const roleNav = {
@@ -20,7 +20,7 @@ const roleNav = {
   member: [
     { label:'Dashboard', icon: LayoutDashboard, to:'/dashboard/member' },
     { label:'Profile', icon: GraduationCap, to:'/dashboard/member/profile' },
-    { label:'Quizzes', icon: Brain, to:'/dashboard/member/quizzes' },
+    { label:'Assessments', icon: Brain, to:'/dashboard/member/quizzes' },
     { label:'Teams', icon: UsersRound, to:'/dashboard/teams' },
     { label:'Leaderboard', icon: Trophy, to:'/dashboard/leaderboard' },
   ],
@@ -33,24 +33,36 @@ const roleNav = {
   ],
 };
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen, onCloseMobile }) {
   const { user } = useAuth();
   const role = user?.role || 'member';
   const nav = roleNav[role] || roleNav.member;
 
-  return (
-    <aside className="hidden lg:flex w-[260px] shrink-0 flex-col bg-[var(--card)] border-r border-[var(--border)] min-h-screen sticky top-0">
+  const content = (
+    <div className="flex h-full w-[260px] flex-col bg-[var(--card)] border-r border-[var(--border)]">
       <div className="h-[64px] flex items-center gap-2.5 px-6 border-b border-[var(--border)]">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-strong)] flex items-center justify-center">
           <UsersRound className="w-5 h-5 text-white" />
         </div>
         <span className="font-bold text-[16px] text-[var(--text-primary)]">TeamMatch</span>
         <span className="ml-auto text-[10px] font-bold px-2 py-1 rounded-full bg-[var(--text-primary)] text-[var(--background)] uppercase tracking-widest">{role}</span>
+        {onCloseMobile && (
+          <button
+            onClick={onCloseMobile}
+            className="lg:hidden ml-1 p-1 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface)]"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
-      <nav className="p-4 space-y-1 flex-1">
+      <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
         {nav.map(item => (
-          <NavLink key={item.to} to={item.to}
+          <NavLink
+            key={item.to}
+            to={item.to}
+            onClick={() => onCloseMobile && onCloseMobile()}
             className={({isActive})=> `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium ${isActive?'bg-[var(--text-primary)] text-[var(--background)]':'text-[var(--text-secondary)] hover:bg-[var(--surface)] hover:text-[var(--text-primary)]'}`}>
             <item.icon className="w-4 h-4" /> {item.label}
           </NavLink>
@@ -61,9 +73,37 @@ export default function Sidebar() {
         <div className="rounded-2xl bg-gradient-to-br from-[var(--accent)] to-[#60A5FA] p-4 text-white">
           <div className="text-[13px] font-bold">Need a hand?</div>
           <div className="text-[11px] opacity-90">Explore the leaderboard or revisit the home page.</div>
-          <NavLink to="/dashboard/leaderboard" className="mt-3 w-full py-2 rounded-full bg-white text-zinc-900 text-[12px] font-semibold flex items-center justify-center">Leaderboard</NavLink>
+          <NavLink
+            to="/dashboard/leaderboard"
+            onClick={() => onCloseMobile && onCloseMobile()}
+            className="mt-3 w-full py-2 rounded-full bg-[var(--card)] text-[var(--text-primary)] border border-[var(--border)] text-[12px] font-semibold flex items-center justify-center hover:bg-[var(--surface)]"
+          >
+            Leaderboard
+          </NavLink>
         </div>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop permanent sidebar */}
+      <aside className="hidden lg:flex w-[260px] shrink-0 min-h-screen sticky top-0">
+        {content}
+      </aside>
+
+      {/* Mobile drawer with backdrop */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+            onClick={onCloseMobile}
+          />
+          <div className="relative flex-1 flex flex-col max-w-[260px] w-full bg-[var(--card)] shadow-2xl z-10">
+            {content}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
