@@ -1,6 +1,6 @@
 # TeamMatch – AI-Powered Teammate Discovery & Hackathon Platform
 
-[![Frontend Build](https://img.shields.io/badge/Frontend-Vite%20%2B%20React%2019-646CFF?logo=vite)](https://teammatch.netlify.app)
+[![Frontend Build](https://img.shields.io/badge/Frontend-Vite%20%2B%20React%2019-646CFF?logo=vite)](https://teammatch-app.netlify.app)
 [![Backend API](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-339933?logo=node.js)](https://teammatch-api.onrender.com)
 [![Database](https://img.shields.io/badge/Database-MongoDB%20Atlas-47A248?logo=mongodb)](https://mongodb.com)
 [![Deployment](https://img.shields.io/badge/Deployment-Render%20%2B%20Netlify-00C7B7?logo=render)](https://github.com/yashnpatil2007-cloud/teammatch)

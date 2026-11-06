@@ -27,7 +27,7 @@ const configuredOrigins = (process.env.FRONTEND_URL || '')
 
 const allowedOrigins = configuredOrigins.length > 0
   ? configuredOrigins
-  : (process.env.NODE_ENV === 'production' ? ['https://teammatch.netlify.app'] : defaultDevOrigins);
+  : (process.env.NODE_ENV === 'production' ? ['https://teammatch-app.netlify.app', 'https://teammatch.netlify.app'] : defaultDevOrigins);
 
 app.use(
   helmet({
