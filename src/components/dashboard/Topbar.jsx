@@ -22,6 +22,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { notificationApi } from '../../services/api';
+import { Avatar } from '../ui/Avatar';
 
 const formatTimeAgo = (dateStr) => {
   if (!dateStr) return '';
@@ -291,18 +292,7 @@ export default function Topbar({ onToggleMobileMenu }) {
 
       <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-[var(--border)] shrink-0">
         <Link to="/dashboard/profile" title="Personal Details" aria-label="Personal Details">
-          {photo ? (
-            <img
-              src={photo}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border border-[var(--border)]"
-              alt={user?.name || 'User avatar'}
-            />
-          ) : (
-            <div
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-[var(--border)] bg-transparent"
-              aria-label="No profile photo"
-            />
-          )}
+          <Avatar user={user} size="sm" className="hover:ring-2 hover:ring-[#6C63FF]/50 transition-all cursor-pointer" />
         </Link>
         <div className="hidden sm:block leading-tight">
           <div className="text-[13px] font-semibold text-[var(--text-primary)]">{user?.name || 'User'}</div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Modal, Field, inputCls } from '../../components/ui/Modal';
+import { Avatar } from '../../components/ui/Avatar';
 import { userApi, errMsg, resolveFileUrl } from '../../services/api';
 import {
   Award,
@@ -208,11 +209,7 @@ export default function CertificatesPanel({ certs = [], reload }) {
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 {/* User & Cert Details */}
                 <div className="flex items-start gap-4 flex-1 min-w-0">
-                  <img
-                    src={c.user?.avatar || 'https://i.pravatar.cc/100?img=12'}
-                    alt=""
-                    className="w-12 h-12 rounded-2xl object-cover border border-[var(--border)] shrink-0"
-                  />
+                  <Avatar user={c.user} size="lg" />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h4 className="font-bold text-[15px] truncate">{c.title}</h4>

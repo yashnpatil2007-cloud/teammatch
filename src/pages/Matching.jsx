@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { Avatar } from '../components/ui/Avatar';
 import { problemApi, teamApi, errMsg } from '../services/api';
 import {
   Brain,
@@ -356,11 +357,7 @@ export default function Matching() {
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     {/* User Identity */}
                     <div className="flex items-start gap-3.5 flex-1 min-w-0">
-                      <img
-                        src={u.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${u._id}`}
-                        className="w-12 h-12 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shrink-0 object-cover"
-                        alt={u.name}
-                      />
+                      <Avatar user={u} size="lg" className="rounded-2xl" />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-[15px] font-extrabold truncate">{u.name}</h3>
@@ -638,11 +635,7 @@ export default function Matching() {
                     </div>
                     {combo.members?.map((m) => (
                       <div key={m._id} className="flex items-center gap-2 text-[12px]">
-                        <img
-                          src={m.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${m._id}`}
-                          className="w-6 h-6 rounded-full bg-[var(--surface)]"
-                          alt=""
-                        />
+                        <Avatar user={m} size="xs" />
                         <span className="font-medium truncate">{m.name}</span>
                         {m.personality?.archetype && (
                           <span className="text-[10px] text-[var(--text-secondary)] truncate">
@@ -680,11 +673,7 @@ export default function Matching() {
             {/* Candidate Summary Card */}
             <div className="p-4 rounded-2xl bg-[var(--surface)] flex flex-wrap items-center justify-between gap-4 border border-[var(--border)]">
               <div className="flex items-center gap-3">
-                <img
-                  src={selectedCandidate.user.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${selectedCandidate.user._id}`}
-                  className="w-12 h-12 rounded-2xl bg-[var(--card)] border border-[var(--border)]"
-                  alt=""
-                />
+                <Avatar user={selectedCandidate.user} size="lg" className="rounded-2xl" />
                 <div>
                   <h4 className="font-extrabold text-[15px]">{selectedCandidate.user.name}</h4>
                   <div className="text-[12px] text-[var(--text-secondary)]">

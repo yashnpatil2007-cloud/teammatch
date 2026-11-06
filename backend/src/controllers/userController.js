@@ -3,7 +3,8 @@ const path = require('path');
 const { db, save, uid, now } = require('../data/store');
 const { asyncHandler } = require('../utils/generateToken');
 const { publicUser } = require('../middleware/auth');
-const { CERTIFICATES_DIR, RESUMES_DIR } = require('../middleware/upload');
+const { CERTIFICATES_DIR, RESUMES_DIR, AVATARS_DIR } = require('../middleware/upload');
+const { storageService } = require('../services/storageService');
 
 const badgeFor = (score) => {
   if (score >= 90) return 'Platinum';
@@ -404,6 +405,72 @@ const verifyCertificate = asyncHandler(async (req, res) => {
   return res.status(404).json({ message: 'Certificate not found' });
 });
 
+/**
+ * POST /api/users/profile-photo
+ * Authenticated user uploads an avatar (JPG, PNG, WEBP <= 5MB)
+ * Uses storageService abstraction (S3/Cloudinary in prod, local in dev)
+ */
+const uploadProfilePhoto = asyncHandler(async (req, res) => {
+  const user = db.users.find((u) => u._id === req.user._id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  if (!req.file) {
+    return res.status(400).json({ message: 'Please select an image file (JPG, PNG, or WEBP, max 5 MB)' });
+  }
+
+  // If previous avatar was stored locally in AVATARS_DIR, clean it up
+  if (user.avatar && user.avatar.includes('/uploads/avatars/')) {
+    const oldFileName = path.basename(user.avatar);
+    const oldPath = path.join(AVATARS_DIR, oldFileName);
+    if (fs.existsSync(oldPath)) {
+      try { fs.unlinkSync(oldPath); } catch (_) {}
+    }
+  }
+
+  // Process through storageService abstraction (S3 / Cloudinary / Local)
+  const processed = await storageService.processUpload(req.file, 'avatars');
+
+  user.profilePicture = processed.url;
+  user.avatar = processed.url;
+  user.updatedAt = now();
+
+  save();
+
+  res.status(200).json({
+    message: 'Profile photo uploaded successfully',
+    photoUrl: processed.url,
+    user: publicUser(user),
+  });
+});
+
+/**
+ * DELETE /api/users/profile-photo
+ * Authenticated user removes their avatar photo
+ */
+const deleteProfilePhoto = asyncHandler(async (req, res) => {
+  const user = db.users.find((u) => u._id === req.user._id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
+  // Clean up local file if stored locally
+  if (user.avatar && user.avatar.includes('/uploads/avatars/')) {
+    const oldFileName = path.basename(user.avatar);
+    const oldPath = path.join(AVATARS_DIR, oldFileName);
+    if (fs.existsSync(oldPath)) {
+      try { fs.unlinkSync(oldPath); } catch (_) {}
+    }
+  }
+
+  user.profilePicture = '';
+  user.avatar = '';
+  user.updatedAt = now();
+
+  save();
+
+  res.status(200).json({
+    message: 'Profile photo removed successfully',
+    user: publicUser(user),
+  });
+});
+
 module.exports = {
   getLeaderboard,
   listUsers,
@@ -420,4 +487,6 @@ module.exports = {
   deleteResume,
   pendingCertificates,
   verifyCertificate,
+  uploadProfilePhoto,
+  deleteProfilePhoto,
 };

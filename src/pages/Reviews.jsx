@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card } from '../components/ui/Card';
+import { Avatar } from '../components/ui/Avatar';
 import { reviewApi, userApi, errMsg } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Star, Send, CheckCircle2 } from 'lucide-react';
@@ -66,7 +67,7 @@ export default function Reviews(){
  <div className="space-y-3">
  {reviews.map(r=>(
  <Card key={r._id} className="p-5 flex gap-4">
- <img src={r.reviewer?.avatar||`https://i.pravatar.cc/100?img=12`} className="w-10 h-10 rounded-full object-cover" alt=""/>
+ <Avatar user={r.reviewer} size="md" />
  <div className="flex-1"><div className="flex items-center gap-2"><span className="font-bold text-[13px]">{r.reviewer?.name||'Reviewer'}</span><span className="flex gap-0.5">{Array.from({length:5}).map((_,i)=><Star key={i} className={`w-3 h-3 ${i<r.rating?'fill-amber-400 text-amber-400':'text-zinc-300'}`}/>)}</span><span className="text-[11px] text-[var(--text-secondary)]">{new Date(r.createdAt).toLocaleDateString()}</span></div><p className="mt-1 text-[13px] text-[var(--text-secondary)]">{r.comment}</p></div>
  </Card>
  ))}

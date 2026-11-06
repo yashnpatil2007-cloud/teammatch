@@ -7,8 +7,9 @@ const UPLOADS_DIR = path.join(__dirname, '../../uploads');
 const CERTIFICATES_DIR = path.join(UPLOADS_DIR, 'certificates');
 const RESUMES_DIR = path.join(UPLOADS_DIR, 'resumes');
 const SUBMISSIONS_DIR = path.join(UPLOADS_DIR, 'submissions');
+const AVATARS_DIR = path.join(UPLOADS_DIR, 'avatars');
 
-[UPLOADS_DIR, CERTIFICATES_DIR, RESUMES_DIR, SUBMISSIONS_DIR].forEach((dir) => {
+[UPLOADS_DIR, CERTIFICATES_DIR, RESUMES_DIR, SUBMISSIONS_DIR, AVATARS_DIR].forEach((dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -115,12 +116,42 @@ const uploadSubmission = multer({
   fileFilter: submissionFilter,
 });
 
+// Storage for Profile Photos / Avatars (JPG, JPEG, PNG, WEBP $\le$ 5MB)
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, AVATARS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const unique = crypto.randomBytes(6).toString('hex');
+    const userId = req.user && req.user._id ? String(req.user._id).replace(/[^a-zA-Z0-9_-]/g, '_') : 'user';
+    cb(null, `avatar_${userId}_${Date.now()}_${unique}${ext}`);
+  },
+});
+
+const avatarFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid image type. Only JPG, JPEG, PNG and WEBP formats are allowed (maximum 5 MB).'), false);
+  }
+};
+
+const uploadAvatar = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: avatarFilter,
+});
+
 module.exports = {
   uploadCertificate,
   uploadResume,
   uploadSubmission,
+  uploadAvatar,
   UPLOADS_DIR,
   CERTIFICATES_DIR,
   RESUMES_DIR,
   SUBMISSIONS_DIR,
+  AVATARS_DIR,
 };

@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Modal, Field, inputCls } from '../../components/ui/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { userApi, teamApi, errMsg, resolveFileUrl } from '../../services/api';
+import { Avatar } from '../../components/ui/Avatar';
 import {
   Award,
   Star,
@@ -862,15 +863,24 @@ export default function MemberDashboard() {
             </Field>
           </div>
           <Field
-            label="Profile Photo URL"
-            hint="Paste image URL from your own source. Leave blank to have no photo."
+            label="Profile Photo"
+            hint="Upload or change your official photo directly in Personal Details."
           >
-            <input
-              value={pForm.profilePicture}
-              onChange={(e) => setPForm({ ...pForm, profilePicture: e.target.value })}
-              className={inputCls}
-              placeholder="https://..."
-            />
+            <div className="flex items-center justify-between p-3 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+              <div className="flex items-center gap-3">
+                <Avatar user={{ ...user, profilePicture: pForm.profilePicture || pForm.avatar }} size="sm" />
+                <span className="text-[12px] font-medium text-[var(--text-secondary)]">
+                  {pForm.profilePicture ? 'Custom photo active' : 'No photo uploaded (using default avatar)'}
+                </span>
+              </div>
+              <Link
+                to="/dashboard/profile"
+                className="text-[12px] font-semibold text-[#6C63FF] hover:underline"
+                onClick={() => setEditOpen(false)}
+              >
+                Upload / Change Photo →
+              </Link>
+            </div>
           </Field>
           <div className="grid sm:grid-cols-2 gap-3">
             <Field label="College/University">

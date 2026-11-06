@@ -15,9 +15,11 @@ const {
   deleteResume,
   pendingCertificates,
   verifyCertificate,
+  uploadProfilePhoto,
+  deleteProfilePhoto,
 } = require('../controllers/userController');
 const { protect, authorize } = require('../middleware/auth');
-const { uploadCertificate, uploadResume } = require('../middleware/upload');
+const { uploadCertificate, uploadResume, uploadAvatar } = require('../middleware/upload');
 const router = express.Router();
 
 router.get('/leaderboard', getLeaderboard);
@@ -29,6 +31,8 @@ router.post('/certificates/upload', protect, uploadCertificate.single('file'), u
 router.delete('/certificates/:certId', protect, deleteCertificate);
 router.post('/resume/upload', protect, uploadResume.single('resume'), uploadResumeFile);
 router.delete('/resume', protect, deleteResume);
+router.post('/profile-photo', protect, uploadAvatar.single('photo'), uploadProfilePhoto);
+router.delete('/profile-photo', protect, deleteProfilePhoto);
 router.put('/profile', protect, updateProfile);
 router.post('/quiz', protect, quizSubmit);
 router.get('/', protect, listUsers);

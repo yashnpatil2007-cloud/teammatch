@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Modal, Field, inputCls } from '../../components/ui/Modal';
+import { Avatar } from '../../components/ui/Avatar';
 import { problemApi, teamApi, errMsg } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -60,7 +61,7 @@ function TeamManageModal({ open, team, problems, onClose, onSaved }) {
               const isLeader = String(m._id || m) === String(team.leader?._id || team.leader);
               return (
                 <div key={m._id || m} className="flex items-center gap-3 p-2 rounded-xl border border-[var(--border)]">
-                  <img src={m.avatar || 'https://i.pravatar.cc/100?img=12'} alt="" className="w-8 h-8 rounded-full object-cover" />
+                  <Avatar user={m} size="sm" />
                   <div className="flex-1 min-w-0"><div className="text-[13px] font-semibold truncate">{m.name || m._id || m}</div><div className="text-[11px] text-[var(--text-secondary)] capitalize">{m.role || 'member'}{isLeader ? ' • leader' : ''}</div></div>
                   {!isLeader && <button type="button" onClick={() => removeMember(m)} className="w-7 h-7 rounded-full border border-[var(--border)] flex items-center justify-center text-red-500 hover:bg-red-500/10" title="Remove member"><UserMinus className="w-3.5 h-3.5" /></button>}
                 </div>
@@ -162,7 +163,7 @@ export default function LeaderDashboard(){
  <Card className="p-6">
  <h3 className="font-bold flex items-center gap-2"><BarChart3 className="w-4 h-4"/> Pending Invites</h3>
  <div className="mt-4 space-y-2">
- {invitedTeams.length? invitedTeams.map(t=> <div key={t._id} className="flex items-center gap-3 p-3 rounded-xl border border-[var(--border)]"><img src={t.leader?.avatar||'https://i.pravatar.cc/100?img=12'} className="w-9 h-9 rounded-full" alt=""/><div className="flex-1"><div className="text-[13px] font-semibold">{t.name}</div><div className="text-[11px] text-[var(--text-secondary)]">Leader: {t.leader?.name} • {t.problem?.title}</div></div><button onClick={()=>respond(t._id,'reject')} className="w-9 h-9 rounded-full border border-[var(--border)] flex items-center justify-center text-red-500"><X className="w-4 h-4"/></button><button onClick={()=>respond(t._id,'accept')} className="px-4 py-2 rounded-full bg-emerald-500 text-white text-[12px] font-semibold flex items-center gap-1"><Check className="w-3 h-3"/> Accept</button></div>)
+ {invitedTeams.length? invitedTeams.map(t=> <div key={t._id} className="flex items-center gap-3 p-3 rounded-xl border border-[var(--border)]"><Avatar user={t.leader} size="sm" /><div className="flex-1"><div className="text-[13px] font-semibold">{t.name}</div><div className="text-[11px] text-[var(--text-secondary)]">Leader: {t.leader?.name} • {t.problem?.title}</div></div><button onClick={()=>respond(t._id,'reject')} className="w-9 h-9 rounded-full border border-[var(--border)] flex items-center justify-center text-red-500"><X className="w-4 h-4"/></button><button onClick={()=>respond(t._id,'accept')} className="px-4 py-2 rounded-full bg-emerald-500 text-white text-[12px] font-semibold flex items-center gap-1"><Check className="w-3 h-3"/> Accept</button></div>)
  : <div className="p-6 text-center text-[13px] text-[var(--text-secondary)] border border-dashed border-[var(--border)] rounded-2xl">No pending invites.</div>}
  </div>
  </Card>

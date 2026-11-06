@@ -102,6 +102,12 @@ export const userApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then((r) => r.data),
   deleteResume: () => API.delete('/users/resume').then((r) => r.data),
+  uploadProfilePhoto: (formData, onProgress) =>
+    API.post('/users/profile-photo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress,
+    }).then((r) => r.data),
+  deleteProfilePhoto: () => API.delete('/users/profile-photo').then((r) => r.data),
   pendingCertificates: (params) => API.get('/users/certificates/pending', { params }).then((r) => r.data),
   verifyCertificate: (certId, action, rejectionReason) =>
     API.put(`/users/certificates/${certId}/verify`, { action, rejectionReason }).then((r) => r.data),

@@ -3,6 +3,7 @@ import { Card } from '../../components/ui/Card';
 import { userApi, errMsg } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { ShieldCheck, Trash2, BadgeCheck } from 'lucide-react';
+import { Avatar } from '../../components/ui/Avatar';
 
 const ROLE_TINT = {
   admin: 'bg-zinc-900 text-white',
@@ -55,7 +56,7 @@ export default function UsersPanel({ users, reload }) {
               <tr key={u._id} className="border-t border-[var(--border)]">
                 <td className="py-3">
                   <div className="flex items-center gap-3">
-                    <img src={u.avatar || 'https://i.pravatar.cc/100?img=12'} alt="" className="w-9 h-9 rounded-full object-cover" />
+                    <Avatar user={u} size="sm" />
                     <div className="min-w-0">
                       <div className="font-semibold truncate">{u.name}</div>
                       <div className="text-[11px] text-[var(--text-secondary)] truncate">{u.email}</div>

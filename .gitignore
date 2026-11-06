@@ -42,4 +42,6 @@ backend/uploads/resumes/*
 !backend/uploads/resumes/.gitkeep
 backend/uploads/submissions/*
 !backend/uploads/submissions/.gitkeep
+backend/uploads/avatars/*
+!backend/uploads/avatars/.gitkeep
 scratch/

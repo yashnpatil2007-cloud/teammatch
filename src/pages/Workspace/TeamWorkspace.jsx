@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Modal, Field, inputCls } from '../../components/ui/Modal';
 import { teamApi, submissionApi, errMsg, resolveFileUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { Avatar } from '../../components/ui/Avatar';
 import {
   Users,
   CheckCircle2,
@@ -346,20 +347,9 @@ export default function TeamWorkspace() {
               <div className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Completed</div>
             </div>
             <div className="flex -space-x-2 overflow-hidden items-center pl-2">
-              <img
-                src={team.leader?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=leader'}
-                className="w-9 h-9 rounded-full ring-2 ring-[var(--card)] object-cover bg-[var(--surface)]"
-                title={`Leader: ${team.leader?.name}`}
-                alt=""
-              />
+              <Avatar user={team.leader} size="sm" className="ring-2 ring-[var(--card)]" />
               {(team.members || []).map((m) => (
-                <img
-                  key={m._id}
-                  src={m.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=member'}
-                  className="w-9 h-9 rounded-full ring-2 ring-[var(--card)] object-cover bg-[var(--surface)]"
-                  title={m.name}
-                  alt=""
-                />
+                <Avatar key={m._id} user={m} size="sm" className="ring-2 ring-[var(--card)]" />
               ))}
             </div>
           </div>
@@ -779,11 +769,7 @@ export default function TeamWorkspace() {
               const isMe = msg.sender === user._id;
               return (
                 <div key={msg._id} className={`flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
-                  <img
-                    src={msg.senderAvatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=user'}
-                    className="w-8 h-8 rounded-full bg-[var(--surface)] border border-[var(--border)] shrink-0 object-cover"
-                    alt=""
-                  />
+                  <Avatar user={{ name: msg.senderName, avatar: msg.senderAvatar }} size="sm" />
                   <div className={`max-w-[70%] space-y-1 ${isMe ? 'items-end' : ''}`}>
                     <div className="flex items-center gap-2 text-[11px]">
                       <span className="font-bold">{msg.senderName}</span>

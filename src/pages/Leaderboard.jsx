@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
+import { Avatar } from '../components/ui/Avatar';
 import { userApi, teamApi, statsApi, errMsg } from '../services/api';
 import { Trophy, Star, Medal, Crown, UsersRound, TrendingUp, Search, X } from 'lucide-react';
 
@@ -60,7 +61,7 @@ export default function Leaderboard(){
  {podium.map((u,i)=>(
  <Card key={u._id} className={`p-6 text-center relative overflow-hidden ${i===0?'ring-2 ring-amber-400':''}`}>
  {i===0 && <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center"><Crown className="w-4 h-4 text-[var(--background)]"/></div>}
- <img src={tab==='teams' ? u.leader?.avatar : u.avatar} className="w-16 h-16 rounded-full mx-auto object-cover" alt=""/>
+ <div className="flex justify-center"><Avatar user={tab==='teams' ? u.leader : u} size="xl" /></div>
  <div className="mt-3 font-bold">{tab==='teams' ? u.name : u.name}</div>
  <div className="text-[11px] text-[var(--text-secondary)] capitalize">{tab==='teams' ? (u.problem?.title||'team') : u.role}</div>
  <div className="mt-3 flex justify-center gap-1">{Array.from({length:5}).map((_,k)=><Star key={k} className={`w-3 h-3 ${k<4?'fill-amber-400 text-amber-400':'text-zinc-300'}`}/>)}</div>
@@ -100,7 +101,7 @@ export default function Leaderboard(){
  <table className="w-full text-[13px]">
  <thead className="text-[11px] tracking-widest uppercase text-[var(--text-secondary)]"><tr><th className="text-left py-2">Rank</th><th className="text-left">User</th><th>Role</th><th>Skills</th><th>Reliability</th><th>Rating</th></tr></thead>
  <tbody>
- {(tab==='reliability'?fReliability:fUsers).map((u,i)=> <tr key={u._id} className="border-t border-[var(--border)]"><td className="py-3 font-bold">#{i+1}</td><td className="py-3"><div className="flex items-center gap-2"><img src={u.avatar} className="w-8 h-8 rounded-full object-cover" alt=""/><span className="font-semibold">{u.name}</span></div></td><td className="text-center capitalize">{u.role}</td><td className="text-center text-[12px] text-[var(--text-secondary)]">{u.skills?.slice(0,3).map(s=>s.name).join(', ')||'—'}</td><td className="text-center"><span className="px-2 py-1 rounded-full bg-emerald-500 text-white text-[11px] font-bold">{u.reliabilityScore}</span></td><td className="text-center"><span className="inline-flex items-center gap-1"><Star className="w-3 h-3 fill-amber-400 text-amber-400"/> {u.averageRating||'—'}</span></td></tr>)}
+ {(tab==='reliability'?fReliability:fUsers).map((u,i)=> <tr key={u._id} className="border-t border-[var(--border)]"><td className="py-3 font-bold">#{i+1}</td><td className="py-3"><div className="flex items-center gap-2"><Avatar user={u} size="sm" /><span className="font-semibold">{u.name}</span></div></td><td className="text-center capitalize">{u.role}</td><td className="text-center text-[12px] text-[var(--text-secondary)]">{u.skills?.slice(0,3).map(s=>s.name).join(', ')||'—'}</td><td className="text-center"><span className="px-2 py-1 rounded-full bg-emerald-500 text-white text-[11px] font-bold">{u.reliabilityScore}</span></td><td className="text-center"><span className="inline-flex items-center gap-1"><Star className="w-3 h-3 fill-amber-400 text-amber-400"/> {u.averageRating||'—'}</span></td></tr>)}
  </tbody>
  </table>
  </div>
