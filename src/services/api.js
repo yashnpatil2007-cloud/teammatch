@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  timeout: 15000,
+  timeout: 60000, // 60s timeout to comfortably accommodate free-tier cold starts
 });
 
 API.interceptors.request.use((config) => {
@@ -23,8 +23,15 @@ API.interceptors.response.use(
   }
 );
 
-export const errMsg = (e) =>
-  e?.response?.data?.message || e?.message || 'Something went wrong. Please try again.';
+export const errMsg = (e) => {
+  if (e?.code === 'ECONNABORTED' || (typeof e?.message === 'string' && e.message.toLowerCase().includes('timeout'))) {
+    return 'The server took longer than expected to respond. On the free tier, the backend sleeps when inactive and can take 30-45 seconds to wake up. Please wait a moment and try again.';
+  }
+  if (e?.message === 'Network Error' || e?.code === 'ERR_NETWORK') {
+    return 'Unable to reach the server. The backend may be spinning up from sleep or your connection was interrupted. Please retry in a few seconds.';
+  }
+  return e?.response?.data?.message || e?.message || 'Something went wrong. Please try again.';
+};
 
 export const resolveFileUrl = (url) => {
   if (!url) return '';
@@ -166,6 +173,10 @@ export const notificationApi = {
   markAsRead: (id) => API.put(`/notifications/${id}/read`).then((r) => r.data),
   markAllAsRead: () => API.put('/notifications/read-all').then((r) => r.data),
   delete: (id) => API.delete(`/notifications/${id}`).then((r) => r.data),
+};
+
+export const healthApi = {
+  check: () => API.get('/health').then((r) => r.data),
 };
 
 export default API;

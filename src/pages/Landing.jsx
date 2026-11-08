@@ -5,6 +5,7 @@ import {
  Search, Zap, CheckCircle2, Award, ChevronRight, TrendingUp, Layers, Trophy, Menu, X
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { healthApi } from "../services/api";
 
 function Navbar(){
  const [scrolled,setScrolled]=useState(false); const [open,setOpen]=useState(false);
@@ -24,6 +25,9 @@ function Navbar(){
 }
 
 export default function Landing(){
+ useEffect(() => {
+  healthApi.check().catch(() => {});
+ }, []);
  return (
  <div className="min-h-screen bg-[var(--background)] text-[var(--text-primary)]">
  <Navbar/>

@@ -1,14 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { errMsg } from '../../services/api';
-import { UsersRound, Sparkles, ArrowRight } from 'lucide-react';
+import { errMsg, healthApi } from '../../services/api';
+import { UsersRound, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function Register(){
  const [form,setForm]=useState({name:'',email:'',password:'',role:'member', github:''});
  const [err,setErr]=useState('');
+ const [slowLoading, setSlowLoading] = useState(false);
  const { register, loading } = useAuth();
  const nav = useNavigate();
+
+ useEffect(() => {
+  healthApi.check().catch(() => {});
+ }, []);
+
+ useEffect(() => {
+  let t;
+  if (loading) {
+   t = setTimeout(() => setSlowLoading(true), 3500);
+  } else {
+   setSlowLoading(false);
+  }
+  return () => clearTimeout(t);
+ }, [loading]);
 
  const handle = async (e)=>{
  e.preventDefault(); setErr('');
@@ -46,9 +61,43 @@ export default function Register(){
  <input placeholder="GitHub profile (optional)" value={form.github} onChange={e=>setForm({...form,github:e.target.value})} className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-secondary)]" />
  </div>
 
- {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-[13px] text-red-600">{err}</div>}
+ {slowLoading && !err && (
+  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[12.5px] text-amber-700 dark:text-amber-300 flex items-start gap-2.5">
+   <Loader2 className="w-4 h-4 animate-spin shrink-0 mt-0.5" />
+   <div>
+    <div className="font-semibold">Waking up cloud server...</div>
+    <div className="text-[11.5px] opacity-90 mt-0.5">
+     The free-tier Render backend sleeps when idle and can take 30–45s to boot on first request. Please wait while it connects...
+    </div>
+   </div>
+  </div>
+ )}
 
- <button disabled={loading} className="w-full py-3.5 rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-strong)] text-white font-semibold flex items-center justify-center gap-2">{loading?'Creating...':'Create account'} <ArrowRight className="w-4 h-4"/></button>
+ {err && (
+  <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-[13px] text-red-600 dark:text-red-400 space-y-2">
+   <div>{err}</div>
+   <button
+    type="submit"
+    disabled={loading}
+    className="text-[12px] font-bold text-[var(--accent)] underline hover:opacity-80 block"
+   >
+    Try creating account again →
+   </button>
+  </div>
+ )}
+
+ <button disabled={loading} className="w-full py-3.5 rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-strong)] text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50 hover:opacity-90">
+  {loading ? (
+   <>
+    <Loader2 className="w-4 h-4 animate-spin" />
+    {slowLoading ? 'Waking up server (please wait)...' : 'Creating...'}
+   </>
+  ) : (
+   <>
+    Create account <ArrowRight className="w-4 h-4" />
+   </>
+  )}
+ </button>
  <div className="text-center text-[13px] text-[var(--text-secondary)]">Already have an account? <Link to="/login" className="font-semibold text-[var(--text-primary)] underline">Login</Link></div>
  </form>
  </div>
