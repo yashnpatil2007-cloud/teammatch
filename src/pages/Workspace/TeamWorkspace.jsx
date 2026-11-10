@@ -30,7 +30,8 @@ import {
   ExternalLink,
   RefreshCw,
   X,
-  FileCheck
+  FileCheck,
+  UserPlus
 } from 'lucide-react';
 
 export default function TeamWorkspace() {
@@ -314,6 +315,31 @@ export default function TeamWorkspace() {
 
   return (
     <div className="space-y-6">
+      {/* Pending Join Requests Alert for Team Leader */}
+      {isLeader && (team.invites || []).some((i) => i.status === 'requested') && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-transparent border border-indigo-500/30 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+              <UserPlus className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-bold text-[14px] text-[var(--text-primary)]">
+                {(team.invites || []).filter((i) => i.status === 'requested').length} Student Join Request(s) Pending
+              </div>
+              <div className="text-[12px] text-[var(--text-secondary)]">
+                Students have applied to join this team. Review and approve them on your Leader Dashboard.
+              </div>
+            </div>
+          </div>
+          <Link
+            to="/dashboard/leader"
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-[12px] flex items-center gap-1.5 transition"
+          >
+            Review Requests →
+          </Link>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="p-6 rounded-3xl bg-[var(--card)] border border-[var(--border)] shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">

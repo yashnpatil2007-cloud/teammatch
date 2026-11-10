@@ -102,6 +102,7 @@ const getWorkspace = asyncHandler(async (req, res) => {
       balanceScore: team.balanceScore || 0,
       leader,
       members,
+      invites: (team.invites || []).map((inv) => ({ ...inv, user: briefUser(inv.user) })),
       milestones: team.milestones || [],
       resources: team.resources || [],
       activityTimeline: (team.activityTimeline || []).slice(0, 40),

@@ -6,7 +6,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { problemApi, teamApi, errMsg } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
-import { UsersRound, Plus, BarChart3, RefreshCw, Check, X, Settings, Trash2, UserMinus } from 'lucide-react';
+import { UsersRound, Plus, BarChart3, RefreshCw, Check, X, Settings, Trash2, UserMinus, UserPlus, Clock } from 'lucide-react';
 
 function TeamManageModal({ open, team, problems, onClose, onSaved }) {
   const [name, setName] = useState('');
@@ -70,6 +70,64 @@ function TeamManageModal({ open, team, problems, onClose, onSaved }) {
           </div>
         </div>
 
+        {/* Pending Join Requests for this team */}
+        {(team.invites || []).some((i) => i.status === 'requested') && (
+          <div className="pt-2 border-t border-[var(--border)]">
+            <div className="text-[11px] font-semibold tracking-widest uppercase text-indigo-600 mb-2">
+              Pending Join Requests ({(team.invites || []).filter((i) => i.status === 'requested').length})
+            </div>
+            <div className="space-y-2 max-h-[160px] overflow-y-auto">
+              {(team.invites || [])
+                .filter((i) => i.status === 'requested')
+                .map((inv) => {
+                  const candidate = inv.user;
+                  return (
+                    <div
+                      key={candidate?._id || candidate}
+                      className="flex items-center gap-3 p-2 rounded-xl border border-indigo-500/30 bg-indigo-50/20 dark:bg-indigo-950/20"
+                    >
+                      <Avatar user={candidate} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-semibold truncate">{candidate?.name || 'Candidate'}</div>
+                        <div className="text-[11px] text-[var(--text-secondary)] truncate">
+                          {candidate?.skills?.slice(0, 2).map((s) => s.name || s).join(', ') || 'Student'}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await teamApi.respond(team._id, candidate._id || candidate, 'approve');
+                            await onSaved();
+                          } catch (ex) {
+                            setErr(errMsg(ex));
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-bold"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await teamApi.respond(team._id, candidate._id || candidate, 'reject');
+                            await onSaved();
+                          } catch (ex) {
+                            setErr(errMsg(ex));
+                          }
+                        }}
+                        className="p-1 rounded-lg text-red-500 hover:bg-red-500/10"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
         {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-[12px] text-red-600">{err}</div>}
 
         <div className="flex items-center justify-between gap-2 pt-1">
@@ -123,6 +181,37 @@ export default function LeaderDashboard(){
   catch(e){ setErr(errMsg(e)); }
  };
 
+ // Extract all incoming join requests across teams led by this leader
+ const incomingRequests = [];
+ teams.forEach((t) => {
+   (t.invites || []).forEach((inv) => {
+     if (inv.status === 'requested') {
+       incomingRequests.push({
+         teamId: t._id,
+         teamName: t.name,
+         candidate: inv.user,
+         invitedAt: inv.invitedAt,
+       });
+     }
+   });
+ });
+
+ const handleCandidateAction = async (teamId, candidateId, action) => {
+   setBusy(true);
+   setErr('');
+   setMsg('');
+   try {
+     await teamApi.respond(teamId, candidateId, action);
+     setMsg(action === 'approve' ? 'Student join request approved! Member added to team.' : 'Join request declined.');
+     await load();
+     setTimeout(() => setMsg(''), 3500);
+   } catch (e2) {
+     setErr(errMsg(e2));
+   } finally {
+     setBusy(false);
+   }
+ };
+
  return (
  <div className="space-y-6">
  <div className="flex flex-wrap items-end justify-between gap-4">
@@ -130,8 +219,83 @@ export default function LeaderDashboard(){
  <div className="flex gap-2"><Button variant="ghost" onClick={load}><RefreshCw className="w-4 h-4"/> Refresh</Button><Link to="/dashboard/matching"><Button variant="gradient"><UsersRound className="w-4 h-4"/> Find Members</Button></Link></div>
  </div>
 
- {msg && <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[12px] text-emerald-800">{msg}</div>}
- {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-[12px] text-red-600">{err}</div>}
+ {msg && <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[12px] text-emerald-800 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300">{msg}</div>}
+ {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-[12px] text-red-600 dark:text-red-400">{err}</div>}
+
+ {/* Dedicated Incoming Join Requests Section */}
+ {incomingRequests.length > 0 && (
+   <Card className="p-6 border-2 border-indigo-500/40 bg-gradient-to-r from-indigo-50/50 via-transparent to-purple-50/50 dark:from-indigo-950/30 dark:to-purple-950/30 shadow-sm">
+     <div className="flex items-center justify-between mb-2">
+       <h3 className="font-bold text-[15px] flex items-center gap-2">
+         <UserPlus className="w-4 h-4 text-indigo-500" />
+         Incoming Join Requests ({incomingRequests.length})
+       </h3>
+       <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-600 text-white">
+         Action Required
+       </span>
+     </div>
+     <p className="text-[12px] text-[var(--text-secondary)] mb-4">
+       Students have requested to join your project teams. Review their profile, skill set, and approve or decline.
+     </p>
+
+     <div className="space-y-3">
+       {incomingRequests.map(({ teamId, teamName, candidate }) => (
+         <div
+           key={`${teamId}-${candidate?._id || candidate}`}
+           className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-[var(--surface)] border border-[var(--border)]"
+         >
+           <div className="flex items-center gap-3.5 min-w-[220px]">
+             <Avatar user={candidate} size="md" />
+             <div>
+               <div className="font-bold text-[14px] flex items-center gap-2">
+                 {candidate?.name || 'Student Candidate'}
+                 {candidate?.reliabilityScore && (
+                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+                     {candidate.reliabilityScore}% Rel.
+                   </span>
+                 )}
+               </div>
+               <div className="text-[12px] text-[var(--text-secondary)]">
+                 Wants to join <strong className="text-[var(--text-primary)]">{teamName}</strong>
+                 {candidate?.email ? ` • ${candidate.email}` : ''}
+               </div>
+               {candidate?.skills && candidate.skills.length > 0 && (
+                 <div className="flex flex-wrap gap-1 mt-1.5">
+                   {candidate.skills.slice(0, 4).map((s) => (
+                     <span key={s.name || s} className="text-[10px] px-2 py-0.5 rounded-md bg-[var(--card)] border border-[var(--border)] capitalize font-medium">
+                       {s.name || s} (L{s.level || 5})
+                     </span>
+                   ))}
+                 </div>
+               )}
+             </div>
+           </div>
+
+           <div className="flex items-center gap-2">
+             <Button
+               variant="gradient"
+               size="sm"
+               disabled={busy}
+               onClick={() => handleCandidateAction(teamId, candidate?._id || candidate, 'approve')}
+               className="text-[12px] bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 px-3 py-1.5"
+             >
+               <Check className="w-3.5 h-3.5" /> Approve Request
+             </Button>
+             <Button
+               variant="ghost"
+               size="sm"
+               disabled={busy}
+               onClick={() => handleCandidateAction(teamId, candidate?._id || candidate, 'reject')}
+               className="text-[12px] text-red-500 hover:bg-red-500/10 flex items-center gap-1.5 px-3 py-1.5"
+             >
+               <X className="w-3.5 h-3.5" /> Decline
+             </Button>
+           </div>
+         </div>
+       ))}
+     </div>
+   </Card>
+ )}
 
  <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-6">
  <Card className="p-6">
