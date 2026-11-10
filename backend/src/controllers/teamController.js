@@ -48,10 +48,13 @@ const populateTeam = (t) => {
       ? {
           _id: problem._id,
           title: problem.title,
+          description: problem.description || '',
           category: problem.category,
+          difficulty: problem.difficulty || 'Medium',
           requiredSkills: problem.requiredSkills || [],
           requiredRoles: problem.requiredRoles || [],
           teamSize: getProblemCapacity(problem),
+          deadline: problem.deadline || '',
         }
       : t.problem,
     leader: briefUser(t.leader),
@@ -351,6 +354,13 @@ const analyze = asyncHandler(async (req, res) => {
 const invite = asyncHandler(async (req, res) => {
   const team = db.teams.find((t) => t._id === req.params.teamId);
   if (!team) return res.status(404).json({ message: 'Team not found' });
+
+  // Only team leader or admin can invite members to this team
+  const isLeader = String(team.leader?._id || team.leader) === req.user._id;
+  if (!isLeader && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Only the team leader or admin can invite members to this team.' });
+  }
+
   const problem = findProblem(team.problem);
   const maxCapacity = getProblemCapacity(problem);
 
@@ -369,8 +379,8 @@ const invite = asyncHandler(async (req, res) => {
   team.invites = team.invites || [];
   const existingInvite = team.invites.find((i) => (i.user?._id || i.user) === userId);
 
-  if (existingInvite && existingInvite.status === 'pending') {
-    return res.status(400).json({ message: 'An invite is already pending for this student.' });
+  if (existingInvite && (existingInvite.status === 'pending' || existingInvite.status === 'requested')) {
+    return res.status(400).json({ message: 'An invite or request is already pending for this student.' });
   }
 
   if (existingInvite) {
@@ -415,23 +425,29 @@ const requestJoin = asyncHandler(async (req, res) => {
   }
 
   const userId = req.user._id;
-  if ((team.members || []).includes(userId) || team.leader === userId) {
-    return res.status(400).json({ message: 'You are already a member of this team.' });
+  if ((team.members || []).includes(userId) || String(team.leader?._id || team.leader) === userId) {
+    return res.status(400).json({ message: 'You are already a member or leader of this team.' });
   }
 
   team.invites = team.invites || [];
   const existing = team.invites.find((i) => (i.user?._id || i.user) === userId);
-  if (existing && existing.status === 'pending') {
+  if (existing && (existing.status === 'pending' || existing.status === 'requested')) {
     return res.status(400).json({ message: 'You already have a pending invite or request for this team.' });
   }
 
-  team.invites.push({
-    _id: 'inv-' + uid().slice(0, 8),
-    user: userId,
-    status: 'requested',
-    type: 'join_request',
-    invitedAt: now(),
-  });
+  if (existing) {
+    existing.status = 'requested';
+    existing.type = 'join_request';
+    existing.invitedAt = now();
+  } else {
+    team.invites.push({
+      _id: 'inv-' + uid().slice(0, 8),
+      user: userId,
+      status: 'requested',
+      type: 'join_request',
+      invitedAt: now(),
+    });
+  }
 
   const leaderId = String(team.leader?._id || team.leader);
   createNotification({
@@ -464,6 +480,29 @@ const respondInvite = asyncHandler(async (req, res) => {
   const invite = (team.invites || []).find((i) => (i.user?._id || i.user) === userId);
   if (!invite) return res.status(404).json({ message: 'Invite not found' });
 
+  const isLeader = String(team.leader?._id || team.leader) === req.user._id || req.user.role === 'admin';
+  const isTargetUser = req.user._id === String(userId) || req.user.role === 'admin';
+
+  if (action === 'accept' || action === 'decline') {
+    // Only the invited user can accept or decline their own invitation
+    if (!isTargetUser) {
+      return res.status(403).json({ message: 'You can only accept or decline invitations sent to yourself.' });
+    }
+    if (invite.status !== 'pending') {
+      return res.status(400).json({ message: `Cannot ${action} invitation with current status "${invite.status}".` });
+    }
+  } else if (action === 'approve' || action === 'reject') {
+    // Only the team leader or admin can approve or reject join requests
+    if (!isLeader) {
+      return res.status(403).json({ message: 'Only the team leader or admin can approve or reject join requests.' });
+    }
+    if (invite.status !== 'requested') {
+      return res.status(400).json({ message: `Cannot ${action} join request with current status "${invite.status}".` });
+    }
+  } else {
+    return res.status(400).json({ message: 'Invalid action. Must be accept, decline, approve, or reject.' });
+  }
+
   if (action === 'accept' || action === 'approve') {
     if ((team.members || []).length >= maxCapacity) {
       return res.status(400).json({
@@ -488,7 +527,7 @@ const respondInvite = asyncHandler(async (req, res) => {
       type: 'join_rejected',
       title: 'Team Application Update',
       message: `Your invitation or join request for "${team.name}" was declined.`,
-      link: '/dashboard/matching',
+      link: '/dashboard/teams',
     });
   }
 
@@ -498,7 +537,7 @@ const respondInvite = asyncHandler(async (req, res) => {
 });
 
 const canManage = (team, user) =>
-  user.role === 'admin' || user.role === 'organizer' || String(team.leader?._id || team.leader) === user._id;
+  user.role === 'admin' || String(team.leader?._id || team.leader) === user._id;
 
 const updateTeam = asyncHandler(async (req, res) => {
   const team = db.teams.find((t) => t._id === req.params.teamId);

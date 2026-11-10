@@ -204,6 +204,41 @@
 
 ---
 
+### Final Master RBAC & Workflow Correction
+- **Status:** **COMPLETE & VERIFIED**
+- **Deliverables:**
+  - **Strict Role-Based Platform Structure:**
+    - **Admin:** Full platform control across Users, Teams, Problems, Assessments, Certificates, Submissions, Analytics, and Settings.
+    - **Organizer:** Challenges/Problems management, Team listings & progress monitoring, Project Submissions Review (scoring rubrics, approvals, revision requests), AI Team Analyzer, and reports. Blocked from creating student teams or modifying platform-wide user records.
+    - **Team Leader:** Leader Dashboard, Create Team, Find Members (Smart Teammate Matching), Compatibility Analysis, Team Strength, Team Invitations, Join Request Management, and Team Workspace.
+    - **Team Member:** Dedicated Member Dashboard, Find Teams / Explore Teams, Search & Filter Teams, Team Details modal, Send Join Requests, Receive/Accept/Decline Invitations, My Teams list, Joined Team Workspace, Assessments, Profile, and Certificates. Strictly blocked from creating teams, discovering students/matching candidates, or sending invitations.
+  - **Dedicated Team Discovery & Exploration (`src/pages/Member/FindTeams.jsx`):**
+    - Search by team name, problem challenge title, description, or skill.
+    - Filter pills by domain category (`AI/ML`, `Web3`, `FinTech`, `HealthTech`, `EdTech`, `Cloud/DevOps`, `CyberSecurity`).
+    - Filter by availability (`All`, `Open Positions Only`, `My Joined Teams`, `Pending Requests`).
+    - Rich team cards with problem description, leader details, capacity progress bar, missing skills tags, "View Details" modal, and state-aware "Request to Join" button.
+    - Embedded discovery and "My Teams" workspace access directly within `src/pages/Member/Dashboard.jsx`.
+  - **Backend Authorization & Security Lockdown:**
+    - `POST /api/teams`: Restricted to `authorize('leader', 'admin')`.
+    - `GET /api/teams/match`: Restricted to `authorize('leader', 'admin')`.
+    - `POST /api/teams/:id/invite`: Restricted to `authorize('leader', 'admin')` + strict team leader ownership check.
+    - `POST /api/teams/:id/request-join`: Capacity check, duplicate pending request check, and existing member check.
+    - `POST /api/teams/:id/respond`: Enforced strict authorization preventing IDOR and self-approvals:
+      - `accept` / `decline`: Intended recipient only (`req.user._id === String(userId)`), only on `pending` invitations.
+      - `approve` / `reject`: Team leader only (`req.user._id === String(team.leader)`), only on `requested` join requests.
+  - **Frontend Navigation & Direct URL Protection:**
+    - `src/App.jsx`: `TeamsRouter` dynamically serves `FindTeams` to Members and `LeaderDashboard` to Leaders/Admins; `/dashboard/matching` protected for `roles={['leader', 'admin']}`; `/dashboard/strength` protected for `roles={['leader', 'admin', 'organizer']}`.
+    - `src/components/dashboard/Sidebar.jsx`: Member navigation displays "Find Teams" with Search icon; Leader navigation displays "Find Members" and "Create Team".
+  - **Profile Photo Upload Enhancement:**
+    - File picker supporting JPG, JPEG, PNG, WEBP up to 5 MB.
+    - Real-time client-side preview, upload progress indicator, change and remove photo options.
+    - Secure authenticated upload (`POST /api/users/profile-photo`) and deletion (`DELETE /api/users/profile-photo`).
+    - Persistent cloud storage abstraction (`storageService.js`) and consistent avatar display across Topbar, Profile, Leaderboard, Cards, and Workspace.
+  - **Automated RBAC Test Suite:**
+    - Verified with 56/56 passing assertions in `scratch/test_master_rbac.cjs`.
+
+---
+
 ## 3. Test Matrix & Verification Summary
 
 | Test Suite | Total Tests | Passed | Failed | Status |

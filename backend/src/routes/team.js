@@ -31,13 +31,13 @@ const router = express.Router();
 
 router.get('/', protect, getTeams);
 router.get('/mine', protect, getMine);
-router.get('/match', protect, match);
-router.post('/', protect, authorize('leader', 'organizer', 'admin', 'member'), createTeam);
+router.get('/match', protect, authorize('leader', 'admin'), match);
+router.post('/', protect, authorize('leader', 'admin'), createTeam);
 router.get('/:teamId', protect, getOne);
 router.get('/:teamId/analyze', protect, analyze);
-router.put('/:teamId', protect, authorize('leader', 'organizer', 'admin'), updateTeam);
-router.delete('/:teamId', protect, authorize('leader', 'organizer', 'admin'), removeTeam);
-router.post('/:teamId/invite', protect, authorize('leader', 'organizer', 'admin'), invite);
+router.put('/:teamId', protect, authorize('leader', 'admin'), updateTeam);
+router.delete('/:teamId', protect, authorize('leader', 'admin'), removeTeam);
+router.post('/:teamId/invite', protect, authorize('leader', 'admin'), invite);
 router.post('/:teamId/request-join', protect, requestJoin);
 router.post('/:teamId/respond', protect, respondInvite);
 router.post('/:teamId/remove-member', protect, removeMember);

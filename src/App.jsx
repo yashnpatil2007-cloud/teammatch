@@ -20,6 +20,7 @@ const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
 const PersonalDetails = lazy(() => import('./pages/Profile/PersonalDetails'));
 const TeamWorkspace = lazy(() => import('./pages/Workspace/TeamWorkspace'));
+const FindTeams = lazy(() => import('./pages/Member/FindTeams'));
 
 function PageLoader() {
   return (
@@ -28,6 +29,14 @@ function PageLoader() {
       <span className="text-[12px] font-semibold text-[var(--text-secondary)]">Loading TeamMatch...</span>
     </div>
   );
+}
+
+function TeamsRouter() {
+  const { user } = useAuth();
+  if (user?.role === 'member') {
+    return <FindTeams />;
+  }
+  return <LeaderDashboard />;
 }
 
 function Protected({ children, roles }){
@@ -69,13 +78,14 @@ export default function App(){
                 <Route path="member/profile" element={<Protected roles={['member','admin']}><MemberDashboard/></Protected>} />
                 <Route path="member/quizzes" element={<Protected roles={['member','leader','admin']}><AssessmentCenter/></Protected>} />
                 <Route path="member/assessments" element={<Protected roles={['member','leader','admin']}><AssessmentCenter/></Protected>} />
+                <Route path="member/teams" element={<Protected roles={['member','admin']}><FindTeams/></Protected>} />
                 {/* Shared */}
                 <Route path="assessments" element={<Protected><AssessmentCenter/></Protected>} />
-                <Route path="teams" element={<Protected><LeaderDashboard/></Protected>} />
+                <Route path="teams" element={<Protected><TeamsRouter/></Protected>} />
                 <Route path="teams/:teamId/workspace" element={<Protected><TeamWorkspace/></Protected>} />
                 <Route path="workspace/:teamId" element={<Protected><TeamWorkspace/></Protected>} />
-                <Route path="matching" element={<Protected><Matching/></Protected>} />
-                <Route path="strength" element={<Protected><Strength/></Protected>} />
+                <Route path="matching" element={<Protected roles={['leader','admin']}><Matching/></Protected>} />
+                <Route path="strength" element={<Protected roles={['leader','admin','organizer']}><Strength/></Protected>} />
                 <Route path="reviews" element={<Protected><Reviews/></Protected>} />
                 <Route path="leaderboard" element={<Protected><Leaderboard/></Protected>} />
                 {/* Admin */}

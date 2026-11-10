@@ -30,6 +30,10 @@ import {
   Target,
   Sparkles,
   Brain,
+  Search,
+  ArrowRight,
+  Kanban,
+  Send,
 } from 'lucide-react';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
 
@@ -58,6 +62,8 @@ export default function MemberDashboard() {
   const { user, refresh } = useAuth();
   const [profile, setProfile] = useState(null);
   const [teams, setTeams] = useState([]);
+  const [availableTeams, setAvailableTeams] = useState([]);
+  const [joiningTeamId, setJoiningTeamId] = useState(null);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
@@ -107,9 +113,10 @@ export default function MemberDashboard() {
 
   const load = async () => {
     try {
-      const [p, t] = await Promise.all([userApi.get(user._id), teamApi.mine()]);
+      const [p, t, allT] = await Promise.all([userApi.get(user._id), teamApi.mine(), teamApi.list()]);
       setProfile(p);
-      setTeams(t);
+      setTeams(t || []);
+      setAvailableTeams(allT || []);
     } catch (e) {
       setErr(errMsg(e));
     }
@@ -128,13 +135,54 @@ export default function MemberDashboard() {
     : 0;
   const certificates = profile?.certificates || [];
 
-  // Pending invitations for this user
+  // Categorize teams for this user
+  const myJoinedTeams = teams.filter(
+    (t) =>
+      (t.members || []).some((m) => String(m._id || m) === user?._id) ||
+      String(t.leader?._id || t.leader) === user?._id
+  );
+
+  const myPendingRequests = teams.filter((t) =>
+    (t.invites || []).some(
+      (inv) => String(inv.user?._id || inv.user) === user?._id && inv.status === 'requested'
+    )
+  );
+
   const incomingInvites = teams
-    .filter((t) => (t.invites || []).some((inv) => String(inv.user?._id || inv.user) === user?._id && inv.status === 'pending'))
+    .filter((t) =>
+      (t.invites || []).some(
+        (inv) => String(inv.user?._id || inv.user) === user?._id && inv.status === 'pending'
+      )
+    )
     .map((t) => ({
       team: t,
       invite: (t.invites || []).find((inv) => String(inv.user?._id || inv.user) === user?._id),
     }));
+
+  const recommendedTeams = availableTeams
+    .filter(
+      (t) =>
+        !myJoinedTeams.some((jt) => jt._id === t._id) &&
+        !myPendingRequests.some((pr) => pr._id === t._id) &&
+        (t.members || []).length < (t.problem?.teamSize || 4)
+    )
+    .slice(0, 3);
+
+  const handleRequestJoin = async (teamId) => {
+    setJoiningTeamId(teamId);
+    setErr('');
+    setMsg('');
+    try {
+      await teamApi.requestJoin(teamId);
+      setMsg('Join request submitted to team leader for review.');
+      await load();
+      setTimeout(() => setMsg(''), 4000);
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setJoiningTeamId(null);
+    }
+  };
 
   const openEdit = () => {
     setPForm({
@@ -428,6 +476,199 @@ export default function MemberDashboard() {
                 </div>
               </div>
             ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Pending Join Requests Tracker */}
+      {myPendingRequests.length > 0 && (
+        <Card className="p-5 border border-amber-500/30 bg-amber-50/30 dark:bg-amber-950/20">
+          <h3 className="font-bold text-[14px] flex items-center gap-2 text-amber-800 dark:text-amber-300">
+            <Clock className="w-4 h-4 text-amber-600" />
+            Pending Join Requests ({myPendingRequests.length})
+          </h3>
+          <p className="text-[12px] text-[var(--text-secondary)] mt-0.5">
+            Your join requests are currently under review by team leaders.
+          </p>
+          <div className="mt-3 grid sm:grid-cols-2 gap-3">
+            {myPendingRequests.map((t) => (
+              <div
+                key={t._id}
+                className="p-3 rounded-xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <div className="font-bold text-[13px] truncate">{t.name}</div>
+                  <div className="text-[11px] text-[var(--text-secondary)] truncate">
+                    {t.problem?.title || 'Innovation Challenge'}
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 shrink-0">
+                  Under Review
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* My Joined Teams / Active Workspaces */}
+      <Card className="p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="font-bold text-[16px] flex items-center gap-2">
+              <Users className="w-4 h-4 text-indigo-500" />
+              My Teams ({myJoinedTeams.length})
+            </h3>
+            <p className="text-[12px] text-[var(--text-secondary)] mt-0.5">
+              Teams you have joined. Open workspaces to collaborate on tasks, chat, and submit projects.
+            </p>
+          </div>
+          <Link
+            to="/dashboard/teams"
+            className="px-3 py-1.5 rounded-xl border border-[var(--border)] text-[12px] font-semibold flex items-center gap-1.5 hover:bg-[var(--surface)] text-[var(--text-primary)]"
+          >
+            <Search className="w-3.5 h-3.5 text-indigo-500" /> Explore More Teams
+          </Link>
+        </div>
+
+        <div className="mt-4">
+          {myJoinedTeams.length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {myJoinedTeams.map((t) => {
+                const isLeader = String(t.leader?._id || t.leader) === user?._id;
+                return (
+                  <div
+                    key={t._id}
+                    className="p-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] flex flex-col justify-between space-y-3"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600">
+                          {t.problem?.category || 'General'}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400">
+                          {isLeader ? 'Leader' : 'Member'}
+                        </span>
+                      </div>
+                      <div className="font-bold text-[14px] mt-2">{t.name}</div>
+                      <div className="text-[12px] text-[var(--text-secondary)] line-clamp-1 mt-0.5">
+                        {t.problem?.title || 'Open Project'}
+                      </div>
+                      <div className="flex items-center gap-2 mt-2 text-[11px] text-[var(--text-secondary)]">
+                        <Users className="w-3.5 h-3.5" />
+                        <span>{(t.members || []).length} / {t.problem?.teamSize || 4} Members</span>
+                      </div>
+                    </div>
+
+                    <Link
+                      to={`/dashboard/teams/${t._id}/workspace`}
+                      className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold flex items-center justify-center gap-1.5 transition"
+                    >
+                      <Kanban className="w-3.5 h-3.5" /> Open Team Workspace
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-6 text-center border-2 border-dashed border-[var(--border)] rounded-2xl">
+              <Users className="w-10 h-10 mx-auto text-[var(--text-secondary)] opacity-50" />
+              <div className="font-bold text-[14px] mt-2">You haven't joined any team yet</div>
+              <p className="text-[12px] text-[var(--text-secondary)] mt-1 max-w-sm mx-auto">
+                Find projects looking for your skills, send a join request to team leaders, or accept incoming invitations.
+              </p>
+              <Link
+                to="/dashboard/teams"
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--text-primary)] text-[var(--background)] text-[12px] font-semibold hover:opacity-90 transition"
+              >
+                <Search className="w-3.5 h-3.5" /> Browse Available Teams
+              </Link>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Recommended Open Teams Discovery Card */}
+      {recommendedTeams.length > 0 && (
+        <Card className="p-6 bg-gradient-to-br from-[var(--surface)] to-[var(--card)] border-[var(--border)]">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 uppercase tracking-wider mb-1">
+                <Sparkles className="w-3.5 h-3.5" /> Recommended For You
+              </div>
+              <h3 className="font-bold text-[16px]">Teams Looking for Members</h3>
+              <p className="text-[12px] text-[var(--text-secondary)]">
+                Connect with teams that need contributors with your background.
+              </p>
+            </div>
+            <Link
+              to="/dashboard/teams"
+              className="text-[12px] font-semibold text-indigo-600 hover:underline flex items-center gap-1"
+            >
+              Explore all teams <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="mt-4 grid md:grid-cols-3 gap-4">
+            {recommendedTeams.map((t) => {
+              const maxCap = t.problem?.teamSize || 4;
+              const openSlots = Math.max(0, maxCap - (t.members || []).length);
+              const isJoining = joiningTeamId === t._id;
+              return (
+                <div
+                  key={t._id}
+                  className="p-4 rounded-2xl border border-[var(--border)] bg-[var(--card)] hover:border-indigo-500/40 transition flex flex-col justify-between space-y-3"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600">
+                        {t.problem?.category || 'General'}
+                      </span>
+                      <span className="text-[11px] font-bold text-emerald-600">
+                        {openSlots} slot{openSlots > 1 ? 's' : ''} left
+                      </span>
+                    </div>
+                    <div className="font-bold text-[14px] text-[var(--text-primary)] truncate">{t.name}</div>
+                    <div className="text-[11px] text-[var(--text-secondary)] line-clamp-2">
+                      {t.problem?.title || 'Innovation Challenge'}
+                    </div>
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {(t.missingSkills || []).slice(0, 3).map((s) => (
+                        <span
+                          key={s}
+                          className="px-2 py-0.5 rounded-md bg-[var(--surface)] text-[10px] text-[var(--text-secondary)] font-medium capitalize"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between gap-2">
+                    <Link
+                      to="/dashboard/teams"
+                      className="text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    >
+                      Details
+                    </Link>
+                    <Button
+                      variant="gradient"
+                      size="sm"
+                      disabled={isJoining}
+                      onClick={() => handleRequestJoin(t._id)}
+                      className="text-[11px] px-3 py-1 flex items-center gap-1"
+                    >
+                      {isJoining ? (
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Send className="w-3 h-3" />
+                      )}
+                      Request to Join
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Card>
       )}
