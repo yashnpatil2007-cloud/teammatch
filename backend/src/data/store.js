@@ -16,6 +16,7 @@ const {
   Message,
   Submission,
   Notification,
+  AuditLog,
 } = require('../models');
 
 const DB_FILE = path.join(__dirname, 'db.json');
@@ -32,6 +33,7 @@ const collections = [
   'messages',
   'submissions',
   'notifications',
+  'auditLogs',
 ];
 
 const db = {
@@ -46,6 +48,7 @@ const db = {
   messages: [],
   submissions: [],
   notifications: [],
+  auditLogs: [],
 };
 
 const state = { mode: 'file' };
@@ -79,6 +82,7 @@ function seedDb() {
     messages: [],
     submissions: [],
     notifications: [],
+    auditLogs: [],
   };
 }
 
@@ -102,7 +106,7 @@ async function loadFromMongo() {
     if (fresh.certificates.length) await Certificate.insertMany(fresh.certificates);
   }
 
-  const [uList, pList, tList, qList, rList, cList, aList, tskList, msgList, subList, notifList] =
+  const [uList, pList, tList, qList, rList, cList, aList, tskList, msgList, subList, notifList, auditList] =
     await Promise.all([
       User.find().lean(),
       ProblemStatement.find().lean(),
@@ -115,6 +119,7 @@ async function loadFromMongo() {
       Message.find().lean(),
       Submission.find().lean(),
       Notification.find().lean(),
+      AuditLog.find().lean(),
     ]);
 
   db.users = uList || [];
@@ -128,6 +133,7 @@ async function loadFromMongo() {
   db.messages = msgList || [];
   db.submissions = subList || [];
   db.notifications = notifList || [];
+  db.auditLogs = auditList || [];
 }
 
 function loadFromFile() {
@@ -258,6 +264,12 @@ async function persist() {
           Notification.bulkWrite(
             db.notifications.map((n) => ({
               updateOne: { filter: { _id: n._id }, update: { $set: n }, upsert: true },
+            }))
+          ),
+        db.auditLogs.length &&
+          AuditLog.bulkWrite(
+            db.auditLogs.map((a) => ({
+              updateOne: { filter: { _id: a._id }, update: { $set: a }, upsert: true },
             }))
           ),
       ].filter(Boolean);

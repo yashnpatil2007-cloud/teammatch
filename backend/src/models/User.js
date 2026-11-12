@@ -57,9 +57,12 @@ const userSchema = new mongoose.Schema(
     about: { type: String, default: '' },
     phone: { type: String, default: '' },
     college: { type: String, default: '' },
+    course: { type: String, default: '' },
     year: { type: String, default: '' },
     branch: { type: String, default: '' },
     location: { type: String, default: '' },
+    interests: [{ type: String }],
+    availability: { type: String, default: '' },
     portfolio: { type: String, default: '' },
     website: { type: String, default: '' },
     github: { type: String, default: '' },
@@ -86,6 +89,15 @@ const userSchema = new mongoose.Schema(
     totalReviews: { type: Number, default: 0 },
     averageRating: { type: Number, default: 0 },
     isVerified: { type: Boolean, default: false, index: true },
+    accountStatus: {
+      type: String,
+      enum: ['active', 'suspended', 'deactivated'],
+      default: 'active',
+      index: true,
+    },
+    statusReason: { type: String, default: '' },
+    statusUpdatedAt: { type: Date },
+    statusUpdatedBy: { type: String, default: '' },
   },
   { timestamps: true }
 );

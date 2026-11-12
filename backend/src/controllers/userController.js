@@ -5,6 +5,7 @@ const { asyncHandler } = require('../utils/generateToken');
 const { publicUser } = require('../middleware/auth');
 const { CERTIFICATES_DIR, RESUMES_DIR, AVATARS_DIR } = require('../middleware/upload');
 const { storageService } = require('../services/storageService');
+const { recordAudit } = require('../utils/audit');
 
 const badgeFor = (score) => {
   if (score >= 90) return 'Platinum';
@@ -15,12 +16,26 @@ const badgeFor = (score) => {
 
 const publicList = (users) => users.map(publicUser);
 
+const directorySummaryUser = (u) => ({
+  _id: u._id,
+  name: u.name,
+  role: u.role,
+  avatar: u.avatar || '',
+  profilePicture: u.profilePicture || '',
+  skills: u.skills || [],
+  reliabilityScore: u.reliabilityScore ?? 70,
+  averageRating: u.averageRating || 0,
+  totalReviews: u.totalReviews || 0,
+  isVerified: !!u.isVerified,
+  accountStatus: u.accountStatus || 'active',
+});
+
 const getLeaderboard = asyncHandler(async (req, res) => {
   const metric = req.query.metric || 'reliability';
-  const list = [...db.users].filter((u) => u.role !== 'admin');
+  const list = [...db.users].filter((u) => u.role !== 'admin' && (u.accountStatus || 'active') === 'active');
   if (metric === 'rating') list.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
   else list.sort((a, b) => (b.reliabilityScore || 0) - (a.reliabilityScore || 0));
-  res.json(publicList(list).slice(0, 50));
+  res.json(list.map(directorySummaryUser).slice(0, 50));
 });
 
 const listUsers = asyncHandler(async (req, res) => {
@@ -29,16 +44,42 @@ const listUsers = asyncHandler(async (req, res) => {
   if (role) list = list.filter((u) => u.role === role);
   if (q) {
     const term = String(q).toLowerCase();
-    list = list.filter((u) => u.name.toLowerCase().includes(term) || u.email.toLowerCase().includes(term));
+    list = list.filter((u) => {
+      if (req.user.role === 'admin') {
+        return u.name.toLowerCase().includes(term) || (u.email || '').toLowerCase().includes(term);
+      }
+      return u.name.toLowerCase().includes(term);
+    });
   }
-  res.json(publicList(list));
+  if (req.user.role === 'admin') {
+    return res.json(publicList(list));
+  }
+  res.json(list.filter((u) => (u.accountStatus || 'active') === 'active').map(directorySummaryUser));
 });
 
 const getProfile = asyncHandler(async (req, res) => {
   const user = db.users.find((u) => u._id === req.params.id);
   if (!user) return res.status(404).json({ message: 'User not found' });
   const reviews = db.reviews.filter((r) => r.reviewee === user._id);
-  res.json({ ...publicUser(user), reviews });
+  const canViewFull = req.user.role === 'admin' || req.user._id === user._id;
+  if (canViewFull) {
+    return res.json({ ...publicUser(user), reviews });
+  }
+  return res.json({
+    ...directorySummaryUser(user),
+    bio: user.bio || '',
+    about: user.about || '',
+    college: user.college || '',
+    course: user.course || '',
+    year: user.year || '',
+    branch: user.branch || '',
+    github: user.github || '',
+    linkedin: user.linkedin || '',
+    portfolio: user.portfolio || '',
+    interests: user.interests || [],
+    availability: user.availability || '',
+    reviews,
+  });
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
@@ -55,9 +96,12 @@ const updateProfile = asyncHandler(async (req, res) => {
     profilePicture,
     phone,
     college,
+    course,
     year,
     branch,
     location,
+    interests,
+    availability,
     portfolio,
     website,
     resumeUrl,
@@ -87,9 +131,19 @@ const updateProfile = asyncHandler(async (req, res) => {
   if (profilePicture !== undefined) user.profilePicture = String(profilePicture).trim();
   if (phone !== undefined) user.phone = String(phone).trim();
   if (college !== undefined) user.college = String(college).trim();
+  if (course !== undefined) user.course = String(course).trim();
   if (year !== undefined) user.year = String(year).trim();
   if (branch !== undefined) user.branch = String(branch).trim();
   if (location !== undefined) user.location = String(location).trim();
+  if (interests !== undefined) {
+    user.interests = Array.isArray(interests)
+      ? interests.map((i) => String(i).trim()).filter(Boolean)
+      : String(interests)
+          .split(',')
+          .map((i) => i.trim())
+          .filter(Boolean);
+  }
+  if (availability !== undefined) user.availability = String(availability).trim();
   if (portfolio !== undefined) user.portfolio = String(portfolio).trim();
   if (website !== undefined) user.website = String(website).trim();
   if (resumeUrl !== undefined) user.resumeUrl = String(resumeUrl).trim();
@@ -138,7 +192,13 @@ const adminUpdateUser = asyncHandler(async (req, res) => {
   const user = db.users.find((u) => u._id === req.params.id);
   if (!user) return res.status(404).json({ message: 'User not found' });
   const allowedRoles = ['member', 'leader', 'organizer', 'admin'];
-  const { role, isVerified, reliabilityScore, name, bio } = req.body;
+  const { role, isVerified, reliabilityScore, name, bio, accountStatus, statusReason } = req.body;
+  const previous = {
+    role: user.role,
+    isVerified: !!user.isVerified,
+    reliabilityScore: user.reliabilityScore,
+    accountStatus: user.accountStatus || 'active',
+  };
   if (role !== undefined) {
     if (!allowedRoles.includes(role)) return res.status(400).json({ message: 'Invalid role' });
     if (user._id === req.user._id && role !== 'admin') {
@@ -150,8 +210,35 @@ const adminUpdateUser = asyncHandler(async (req, res) => {
   if (reliabilityScore !== undefined) user.reliabilityScore = Math.max(0, Math.min(100, Number(reliabilityScore)));
   if (name !== undefined && String(name).trim()) user.name = String(name).trim();
   if (bio !== undefined) user.bio = bio;
+  if (accountStatus !== undefined) {
+    const allowedStatuses = ['active', 'suspended', 'deactivated'];
+    if (!allowedStatuses.includes(accountStatus)) {
+      return res.status(400).json({ message: 'Invalid accountStatus. Must be active, suspended, or deactivated' });
+    }
+    if (user._id === req.user._id && accountStatus !== 'active') {
+      return res.status(400).json({ message: 'You cannot suspend or deactivate your own admin account' });
+    }
+    user.accountStatus = accountStatus;
+    user.statusReason = statusReason !== undefined ? String(statusReason).trim() : user.statusReason || '';
+    user.statusUpdatedAt = now();
+    user.statusUpdatedBy = req.user._id;
+  }
   user.updatedAt = now();
   save();
+  recordAudit({
+    actor: req.user,
+    action: 'admin_update_user',
+    targetType: 'user',
+    targetId: user._id,
+    details: `Admin updated user record for ${user.name} (${user.email})`,
+    previousValue: previous,
+    newValue: {
+      role: user.role,
+      isVerified: !!user.isVerified,
+      reliabilityScore: user.reliabilityScore,
+      accountStatus: user.accountStatus || 'active',
+    },
+  });
   res.json(publicUser(user));
 });
 
@@ -159,8 +246,18 @@ const removeUser = asyncHandler(async (req, res) => {
   if (req.params.id === req.user._id) return res.status(400).json({ message: 'You cannot delete your own account' });
   const idx = db.users.findIndex((u) => u._id === req.params.id);
   if (idx === -1) return res.status(404).json({ message: 'User not found' });
+  const target = db.users[idx];
   db.users.splice(idx, 1);
   save();
+  recordAudit({
+    actor: req.user,
+    action: 'admin_delete_user',
+    targetType: 'user',
+    targetId: target._id,
+    details: `Admin deleted user ${target.name} (${target.email})`,
+    previousValue: { _id: target._id, name: target.name, email: target.email, role: target.role },
+    newValue: null,
+  });
   res.json({ message: 'User removed' });
 });
 
@@ -361,6 +458,7 @@ const verifyCertificate = asyncHandler(async (req, res) => {
     const cert = (u.certificates || []).find((c) => c._id === certId);
     if (cert) {
       foundCert = cert;
+      const previousStatus = cert.status;
       if (action === 'verify') {
         cert.status = 'verified';
         cert.rejectionReason = '';
@@ -393,7 +491,38 @@ const verifyCertificate = asyncHandler(async (req, res) => {
         }
       }
 
+      db.notifications = db.notifications || [];
+      db.notifications.unshift({
+        _id: uid(),
+        recipient: u._id,
+        type: 'system',
+        title:
+          cert.status === 'verified'
+            ? 'Certificate Verified'
+            : cert.status === 'rejected'
+            ? 'Certificate Rejected'
+            : 'Certificate Under Review',
+        message:
+          cert.status === 'verified'
+            ? `Your certificate "${cert.title}" has been verified by an administrator.`
+            : cert.status === 'rejected'
+            ? `Your certificate "${cert.title}" was rejected: ${cert.rejectionReason}`
+            : `Your certificate "${cert.title}" is now under administrator review.`,
+        link: '/dashboard/member',
+        read: false,
+        createdAt: now(),
+      });
+
       save();
+      recordAudit({
+        actor: req.user,
+        action: `certificate_${action || cert.status}`,
+        targetType: 'user',
+        targetId: u._id,
+        details: `Certificate "${cert.title}" (${cert._id}) marked ${cert.status}${cert.rejectionReason ? ` — Reason: ${cert.rejectionReason}` : ''}`,
+        previousValue: { certId: cert._id, status: previousStatus },
+        newValue: { certId: cert._id, status: cert.status, rejectionReason: cert.rejectionReason || '' },
+      });
       return res.json({
         certificate: cert,
         user: publicUser(u),
@@ -471,6 +600,450 @@ const deleteProfilePhoto = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * GET /api/users/admin/directory
+ * Admin-only paginated, searchable, filterable user directory with record counts.
+ */
+const adminDirectory = asyncHandler(async (req, res) => {
+  const {
+    q = '',
+    role = 'all',
+    accountStatus = 'all',
+    isVerified = 'all',
+    hasPendingCert = 'all',
+    sortBy = 'createdAt',
+    sortDir = 'desc',
+    page = 1,
+    limit = 12,
+  } = req.query;
+
+  const allUsers = db.users || [];
+  const teams = db.teams || [];
+  const submissions = db.submissions || [];
+
+  const summary = {
+    totalUsers: allUsers.length,
+    activeUsers: allUsers.filter((u) => (u.accountStatus || 'active') === 'active').length,
+    suspendedUsers: allUsers.filter((u) => u.accountStatus === 'suspended').length,
+    deactivatedUsers: allUsers.filter((u) => u.accountStatus === 'deactivated').length,
+    verifiedUsers: allUsers.filter((u) => !!u.isVerified).length,
+    pendingCertificatesTotal: allUsers.reduce(
+      (acc, u) => acc + (u.certificates || []).filter((c) => c.status === 'pending' || c.status === 'under_review').length,
+      0
+    ),
+  };
+
+  let filtered = allUsers.map((u) => {
+    const clean = publicUser(u);
+    const certs = clean.certificates || [];
+    const userTeams = teams.filter(
+      (t) =>
+        t.leader === u._id ||
+        (t.members || []).some((m) => (typeof m === 'string' ? m : m.user) === u._id)
+    );
+    const teamIds = new Set(userTeams.map((t) => t._id));
+    const userSubs = submissions.filter((s) => s.submittedBy === u._id || teamIds.has(s.teamId));
+    return {
+      ...clean,
+      skillsCount: (clean.skills || []).length,
+      certificatesCount: certs.length,
+      pendingCertificatesCount: certs.filter((c) => c.status === 'pending' || c.status === 'under_review').length,
+      hasResume: !!(clean.resumeUrl || clean.resumeFileName),
+      teamsCount: userTeams.length,
+      submissionsCount: userSubs.length,
+    };
+  });
+
+  if (q && String(q).trim()) {
+    const term = String(q).trim().toLowerCase();
+    filtered = filtered.filter((u) => {
+      const skillMatch = (u.skills || []).some((s) => (s.name || '').toLowerCase().includes(term));
+      return (
+        (u.name || '').toLowerCase().includes(term) ||
+        (u.email || '').toLowerCase().includes(term) ||
+        (u.college || '').toLowerCase().includes(term) ||
+        (u.course || '').toLowerCase().includes(term) ||
+        (u.branch || '').toLowerCase().includes(term) ||
+        (u.phone || '').toLowerCase().includes(term) ||
+        (u.location || '').toLowerCase().includes(term) ||
+        skillMatch
+      );
+    });
+  }
+
+  if (role && role !== 'all') {
+    filtered = filtered.filter((u) => u.role === role);
+  }
+  if (accountStatus && accountStatus !== 'all') {
+    filtered = filtered.filter((u) => (u.accountStatus || 'active') === accountStatus);
+  }
+  if (isVerified === 'true') {
+    filtered = filtered.filter((u) => !!u.isVerified);
+  } else if (isVerified === 'false') {
+    filtered = filtered.filter((u) => !u.isVerified);
+  }
+  if (hasPendingCert === 'true') {
+    filtered = filtered.filter((u) => u.pendingCertificatesCount > 0);
+  }
+
+  const dir = sortDir === 'asc' ? 1 : -1;
+  filtered.sort((a, b) => {
+    if (sortBy === 'name') return dir * (a.name || '').localeCompare(b.name || '');
+    if (sortBy === 'reliabilityScore') return dir * ((a.reliabilityScore || 0) - (b.reliabilityScore || 0));
+    return dir * (new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+  });
+
+  const p = Math.max(1, Number(page) || 1);
+  const l = Math.max(1, Math.min(100, Number(limit) || 12));
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / l));
+  const users = filtered.slice((p - 1) * l, p * l);
+
+  res.json({ users, total, page: p, limit: l, totalPages, summary });
+});
+
+/**
+ * GET /api/users/admin/:id
+ * Admin-only complete 8-section user record profile.
+ */
+const adminGetUserDetails = asyncHandler(async (req, res) => {
+  const user = db.users.find((u) => u._id === req.params.id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
+  const clean = publicUser(user);
+  const problemMap = new Map((db.problems || []).map((p) => [p._id, p]));
+  const userMap = new Map((db.users || []).map((u) => [u._id, u]));
+
+  // 1. Personal Information
+  const personalInfo = {
+    _id: clean._id,
+    name: clean.name || '',
+    email: clean.email || '',
+    phone: clean.phone || '',
+    location: clean.location || '',
+    profilePicture: clean.profilePicture || '',
+    avatar: clean.avatar || '',
+    college: clean.college || '',
+    course: clean.course || '',
+    branch: clean.branch || '',
+    year: clean.year || '',
+    bio: clean.bio || '',
+    about: clean.about || '',
+    github: clean.github || '',
+    linkedin: clean.linkedin || '',
+    portfolio: clean.portfolio || '',
+    website: clean.website || '',
+  };
+
+  // 2. Skills & Experience
+  const skillsAndExperience = {
+    skills: clean.skills || [],
+    interests: clean.interests || [],
+    availability: clean.availability || '',
+  };
+
+  // 3. Certificates (merge embedded + flat db.certificates without duplicates)
+  const certMap = new Map();
+  (clean.certificates || []).forEach((c) => certMap.set(c._id, c));
+  (db.certificates || [])
+    .filter((c) => c.userId === clean._id)
+    .forEach((c) => {
+      if (!certMap.has(c._id)) certMap.set(c._id, c);
+    });
+  const certificates = Array.from(certMap.values()).sort(
+    (a, b) => new Date(b.submittedAt || b.uploadedAt || 0) - new Date(a.submittedAt || a.uploadedAt || 0)
+  );
+
+  // 4. Resume
+  const resume = {
+    url: clean.resumeUrl || '',
+    fileName: clean.resumeFileName || '',
+    originalName: clean.resumeOriginalName || '',
+    fileSize: clean.resumeFileSize || 0,
+    uploadedAt: clean.resumeUploadedAt || null,
+  };
+
+  // 5. Assessments (Aptitude, Technical, Personality + full history)
+  const dbAssessments = (db.assessments || [])
+    .filter((a) => a.userId === clean._id)
+    .sort((a, b) => new Date(b.takenAt || b.createdAt || 0) - new Date(a.takenAt || a.createdAt || 0));
+
+  const latestAptitude = dbAssessments.find((a) => a.assessmentType === 'aptitude') || null;
+  const latestPersonality =
+    dbAssessments.find((a) => a.assessmentType === 'personality' || a.assessmentType === 'working_style') || null;
+
+  const history = [
+    ...dbAssessments.map((a) => ({
+      _id: a._id,
+      source: 'assessment',
+      assessmentType: a.assessmentType,
+      title: a.skillOrDomain || a.archetype || a.assessmentType,
+      score: a.score ?? null,
+      level: a.level || '',
+      badge: a.badge || '',
+      archetype: a.archetype || '',
+      metrics: a.metrics || null,
+      details: a.details || null,
+      takenAt: a.takenAt || a.createdAt || null,
+    })),
+    ...(clean.quizScores || []).map((q, idx) => ({
+      _id: q._id || `quiz-${idx}`,
+      source: 'quiz',
+      assessmentType: 'technical',
+      title: q.skill || 'Technical Quiz',
+      score: q.score ?? null,
+      level: q.level ? `Level ${q.level}` : '',
+      badge: q.badge || '',
+      archetype: '',
+      metrics: null,
+      details: null,
+      takenAt: q.takenAt || null,
+    })),
+  ].sort((a, b) => new Date(b.takenAt || 0) - new Date(a.takenAt || 0));
+
+  const assessments = {
+    aptitude: {
+      score: clean.aptitudeScore || latestAptitude?.score || 0,
+      level: clean.aptitudeLevel || latestAptitude?.level || '',
+      badge: clean.aptitudeBadge || latestAptitude?.badge || '',
+      takenAt: latestAptitude?.takenAt || null,
+      metrics: latestAptitude?.metrics || null,
+    },
+    technical: clean.quizScores || [],
+    personality: {
+      archetype: clean.personality?.archetype || latestPersonality?.archetype || '',
+      summary: clean.personality?.summary || '',
+      idealComplement: clean.personality?.idealComplement || '',
+      dimensions: clean.personality?.dimensions || latestPersonality?.metrics || {},
+      takenAt: clean.personality?.takenAt || latestPersonality?.takenAt || null,
+    },
+    history,
+  };
+
+  // 6. Team History
+  const allTeams = db.teams || [];
+  const teamHistory = [];
+  const memberTeamIds = new Set();
+
+  allTeams.forEach((t) => {
+    const problem = t.problemId ? problemMap.get(t.problemId) : null;
+    const isLeader = t.leader === clean._id;
+    const isMember = (t.members || []).some((m) => (typeof m === 'string' ? m : m.user) === clean._id);
+    const joinReq = (t.joinRequests || []).find((jr) => jr.user === clean._id);
+    const invite = (t.invitations || []).find((inv) => inv.user === clean._id);
+
+    if (isLeader || isMember || joinReq || invite) {
+      if (isLeader || isMember) memberTeamIds.add(t._id);
+      const leaderObj = userMap.get(t.leader);
+      teamHistory.push({
+        teamId: t._id,
+        name: t.name,
+        status: t.status || 'forming',
+        problemId: t.problemId || null,
+        problemTitle: problem?.title || t.problemTitle || '',
+        participationRole: isLeader ? 'Leader' : isMember ? 'Member' : joinReq ? 'Join Request' : 'Invited',
+        participationStatus: isLeader || isMember ? 'active' : joinReq?.status || invite?.status || 'pending',
+        isCurrent: (isLeader || isMember) && t.status !== 'archived' && t.status !== 'disbanded',
+        leaderName: leaderObj?.name || '',
+        memberCount: (t.members || []).length,
+        maxSize: t.maxSize || 5,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+      });
+    }
+  });
+  teamHistory.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+
+  // 7. Projects (Submissions + Reviews)
+  const teamMap = new Map(allTeams.map((t) => [t._id, t]));
+  const submissions = (db.submissions || [])
+    .filter((s) => s.submittedBy === clean._id || memberTeamIds.has(s.teamId))
+    .map((s) => {
+      const team = teamMap.get(s.teamId);
+      const problem = s.problemId ? problemMap.get(s.problemId) : team?.problemId ? problemMap.get(team.problemId) : null;
+      return {
+        ...s,
+        teamName: team?.name || 'Team',
+        problemTitle: problem?.title || '',
+      };
+    })
+    .sort((a, b) => new Date(b.updatedAt || b.submittedAt || b.createdAt || 0) - new Date(a.updatedAt || a.submittedAt || a.createdAt || 0));
+
+  const reviewsReceived = (db.reviews || [])
+    .filter((r) => r.reviewee === clean._id)
+    .map((r) => ({
+      ...r,
+      reviewerName: userMap.get(r.reviewer)?.name || 'Teammate',
+      teamName: teamMap.get(r.team)?.name || '',
+    }))
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  const reviewsGiven = (db.reviews || [])
+    .filter((r) => r.reviewer === clean._id)
+    .map((r) => ({
+      ...r,
+      revieweeName: userMap.get(r.reviewee)?.name || 'Teammate',
+      teamName: teamMap.get(r.team)?.name || '',
+    }))
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  const projects = {
+    submissions,
+    reviewsReceived,
+    reviewsGiven,
+  };
+
+  // 8. Account Information & Audit Logs
+  const statusActor = clean.statusUpdatedBy ? userMap.get(clean.statusUpdatedBy) : null;
+  const accountInfo = {
+    _id: clean._id,
+    role: clean.role,
+    accountStatus: clean.accountStatus || 'active',
+    statusReason: clean.statusReason || '',
+    statusUpdatedAt: clean.statusUpdatedAt || null,
+    statusUpdatedBy: clean.statusUpdatedBy || '',
+    statusUpdatedByName: statusActor?.name || '',
+    isVerified: !!clean.isVerified,
+    reliabilityScore: clean.reliabilityScore ?? 70,
+    averageRating: clean.averageRating || 0,
+    totalReviews: clean.totalReviews || 0,
+    createdAt: clean.createdAt || null,
+    updatedAt: clean.updatedAt || null,
+  };
+
+  const auditLogs = (db.auditLogs || [])
+    .filter((a) => a.targetId === clean._id)
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  res.json({
+    user: clean,
+    personalInfo,
+    skillsAndExperience,
+    certificates,
+    resume,
+    assessments,
+    teamHistory,
+    projects,
+    accountInfo,
+    auditLogs,
+  });
+});
+
+/**
+ * PUT /api/users/admin/:id/status
+ * Admin-only account status update (active | suspended | deactivated).
+ */
+const adminUpdateAccountStatus = asyncHandler(async (req, res) => {
+  const user = db.users.find((u) => u._id === req.params.id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
+  const { accountStatus, reason = '' } = req.body;
+  const allowed = ['active', 'suspended', 'deactivated'];
+  if (!allowed.includes(accountStatus)) {
+    return res.status(400).json({ message: 'Invalid accountStatus. Allowed: active, suspended, deactivated' });
+  }
+  if (user._id === req.user._id && accountStatus !== 'active') {
+    return res.status(400).json({ message: 'You cannot suspend or deactivate your own admin account' });
+  }
+
+  const prevStatus = user.accountStatus || 'active';
+  const cleanReason = String(reason || '').trim();
+  user.accountStatus = accountStatus;
+  user.statusReason = accountStatus === 'active' ? cleanReason : cleanReason || `Account marked ${accountStatus} by admin`;
+  user.statusUpdatedAt = now();
+  user.statusUpdatedBy = req.user._id;
+  user.updatedAt = now();
+
+  db.notifications = db.notifications || [];
+  db.notifications.unshift({
+    _id: uid(),
+    recipient: user._id,
+    type: 'system',
+    title: `Account Status: ${accountStatus.toUpperCase()}`,
+    message:
+      accountStatus === 'active'
+        ? 'Your TeamMatch account has been reactivated by an administrator.'
+        : `Your account has been ${accountStatus}${user.statusReason ? `: ${user.statusReason}` : '.'}`,
+    link: '/dashboard/profile',
+    read: false,
+    createdAt: now(),
+  });
+
+  save();
+  recordAudit({
+    actor: req.user,
+    action: `account_status_${accountStatus}`,
+    targetType: 'user',
+    targetId: user._id,
+    details: `Changed account status of ${user.name} (${user.email}) from ${prevStatus} to ${accountStatus}${user.statusReason ? ` — Reason: ${user.statusReason}` : ''}`,
+    previousValue: { accountStatus: prevStatus },
+    newValue: { accountStatus, reason: user.statusReason },
+  });
+
+  res.json({
+    user: publicUser(user),
+    message: `Account status updated to ${accountStatus}`,
+  });
+});
+
+/**
+ * GET /api/users/admin/:id/audit-logs
+ * Admin-only audit history for a specific user.
+ */
+const getAdminAuditLogs = asyncHandler(async (req, res) => {
+  const logs = (db.auditLogs || [])
+    .filter((a) => a.targetId === req.params.id)
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  res.json(logs);
+});
+
+/**
+ * GET /api/users/documents/:category/:fileName
+ * Authenticated document streaming restricted strictly to Admin or the owning user.
+ */
+const getSecureDocument = asyncHandler(async (req, res) => {
+  const { category } = req.params;
+  const rawName = req.params.fileName || '';
+  const safeName = path.basename(rawName);
+
+  if (!['certificates', 'resumes'].includes(category)) {
+    return res.status(400).json({ message: 'Invalid document category' });
+  }
+  if (!safeName || safeName !== rawName || safeName.includes('..')) {
+    return res.status(400).json({ message: 'Invalid file name' });
+  }
+
+  const isAdmin = req.user.role === 'admin';
+  let isOwner = false;
+
+  if (!isAdmin) {
+    if (category === 'certificates') {
+      isOwner = (req.user.certificates || []).some(
+        (c) => c.fileName === safeName || (c.fileUrl && c.fileUrl.endsWith(`/${safeName}`)) || (c.url && c.url.endsWith(`/${safeName}`))
+      );
+    } else if (category === 'resumes') {
+      isOwner =
+        req.user.resumeFileName === safeName ||
+        (req.user.resumeUrl && req.user.resumeUrl.endsWith(`/${safeName}`));
+    }
+  }
+
+  if (!isAdmin && !isOwner) {
+    return res.status(403).json({ message: 'Forbidden: you are not authorized to access this document' });
+  }
+
+  const baseDir = category === 'certificates' ? CERTIFICATES_DIR : RESUMES_DIR;
+  const resolvedPath = path.resolve(baseDir, safeName);
+  if (!resolvedPath.startsWith(path.resolve(baseDir))) {
+    return res.status(400).json({ message: 'Invalid file path' });
+  }
+  if (!fs.existsSync(resolvedPath)) {
+    return res.status(404).json({ message: 'Document file not found' });
+  }
+
+  res.sendFile(resolvedPath);
+});
+
 module.exports = {
   getLeaderboard,
   listUsers,
@@ -489,4 +1062,9 @@ module.exports = {
   verifyCertificate,
   uploadProfilePhoto,
   deleteProfilePhoto,
+  adminDirectory,
+  adminGetUserDetails,
+  adminUpdateAccountStatus,
+  getAdminAuditLogs,
+  getSecureDocument,
 };

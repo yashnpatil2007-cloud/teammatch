@@ -17,6 +17,11 @@ const {
   verifyCertificate,
   uploadProfilePhoto,
   deleteProfilePhoto,
+  adminDirectory,
+  adminGetUserDetails,
+  adminUpdateAccountStatus,
+  getAdminAuditLogs,
+  getSecureDocument,
 } = require('../controllers/userController');
 const { protect, authorize } = require('../middleware/auth');
 const { uploadCertificate, uploadResume, uploadAvatar } = require('../middleware/upload');
@@ -24,6 +29,11 @@ const router = express.Router();
 
 router.get('/leaderboard', getLeaderboard);
 router.get('/me/quiz-history', protect, quizHistory);
+router.get('/documents/:category/:fileName', protect, getSecureDocument);
+router.get('/admin/directory', protect, authorize('admin'), adminDirectory);
+router.get('/admin/:id/audit-logs', protect, authorize('admin'), getAdminAuditLogs);
+router.put('/admin/:id/status', protect, authorize('admin'), adminUpdateAccountStatus);
+router.get('/admin/:id', protect, authorize('admin'), adminGetUserDetails);
 router.get('/certificates/pending', protect, authorize('admin'), pendingCertificates);
 router.put('/certificates/:certId/verify', protect, authorize('admin'), verifyCertificate);
 router.post('/certificates', protect, addCertificate);

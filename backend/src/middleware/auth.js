@@ -3,8 +3,11 @@ const { db } = require('../data/store');
 
 const publicUser = (u) => {
   if (!u) return u;
-  const { password: _password, ...rest } = u;
-  return rest;
+  const { password: _password, passwordHash: _passwordHash, resetToken: _resetToken, tokens: _tokens, __v: _v, ...rest } = u;
+  return {
+    ...rest,
+    accountStatus: rest.accountStatus || 'active',
+  };
 };
 
 const protect = (req, res, next) => {
@@ -18,6 +21,12 @@ const protect = (req, res, next) => {
     const user = db.users.find((u) => u._id === decoded.id);
     if (!user) {
       return res.status(401).json({ message: 'User no longer exists or session expired' });
+    }
+    const status = user.accountStatus || 'active';
+    if (status === 'suspended' || status === 'deactivated') {
+      return res.status(403).json({
+        message: `Account is ${status}${user.statusReason ? `: ${user.statusReason}` : '. Contact an administrator.'}`,
+      });
     }
     req.user = publicUser(user);
     next();

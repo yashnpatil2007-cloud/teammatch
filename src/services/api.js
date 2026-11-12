@@ -118,6 +118,23 @@ export const userApi = {
   pendingCertificates: (params) => API.get('/users/certificates/pending', { params }).then((r) => r.data),
   verifyCertificate: (certId, action, rejectionReason) =>
     API.put(`/users/certificates/${certId}/verify`, { action, rejectionReason }).then((r) => r.data),
+  adminDirectory: (params) => API.get('/users/admin/directory', { params }).then((r) => r.data),
+  adminGetDetails: (id) => API.get(`/users/admin/${id}`).then((r) => r.data),
+  adminUpdateStatus: (id, payload) => API.put(`/users/admin/${id}/status`, payload).then((r) => r.data),
+  adminAuditLogs: (id) => API.get(`/users/admin/${id}/audit-logs`).then((r) => r.data),
+  fetchSecureDocumentUrl: async (fileUrlOrPath) => {
+    if (!fileUrlOrPath) return '';
+    if (fileUrlOrPath.startsWith('http://') || fileUrlOrPath.startsWith('https://')) {
+      if (!fileUrlOrPath.includes('/uploads/certificates/') && !fileUrlOrPath.includes('/uploads/resumes/')) {
+        return fileUrlOrPath;
+      }
+    }
+    const match = fileUrlOrPath.match(/\/uploads\/(certificates|resumes)\/([^/?#]+)/);
+    if (!match) return resolveFileUrl(fileUrlOrPath);
+    const [, category, fileName] = match;
+    const response = await API.get(`/users/documents/${category}/${fileName}`, { responseType: 'blob' });
+    return URL.createObjectURL(response.data);
+  },
 };
 
 export const reviewApi = {

@@ -18,6 +18,7 @@ const Strength = lazy(() => import('./pages/Strength'));
 const Reviews = lazy(() => import('./pages/Reviews'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
+const AdminUserDetails = lazy(() => import('./pages/Admin/UserDetails'));
 const PersonalDetails = lazy(() => import('./pages/Profile/PersonalDetails'));
 const TeamWorkspace = lazy(() => import('./pages/Workspace/TeamWorkspace'));
 const FindTeams = lazy(() => import('./pages/Member/FindTeams'));
@@ -92,6 +93,7 @@ export default function App(){
                 <Route path="admin" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
                 <Route path="admin/submissions" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
                 <Route path="admin/users" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
+                <Route path="admin/users/:userId" element={<Protected roles={['admin']}><AdminUserDetails/></Protected>} />
                 <Route path="admin/problems" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
                 <Route path="admin/quizzes" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
                 <Route path="admin/certificates" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />

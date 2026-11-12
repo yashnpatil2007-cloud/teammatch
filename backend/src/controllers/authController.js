@@ -88,6 +88,12 @@ const login = asyncHandler(async (req, res) => {
   if (!isMatch) {
     return res.status(401).json({ message: 'Invalid email or password' });
   }
+  const status = user.accountStatus || 'active';
+  if (status === 'suspended' || status === 'deactivated') {
+    return res.status(403).json({
+      message: `Your account has been ${status}${user.statusReason ? `: ${user.statusReason}` : '. Please contact an administrator.'}`,
+    });
+  }
   res.json(authPayload(user));
 });
 

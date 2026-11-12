@@ -239,6 +239,31 @@
 
 ---
 
+### Admin Complete User Profile & Record Management (Latest Update)
+- **Status:** **COMPLETE & VERIFIED**
+- **Deliverables:**
+  - **Admin Directory (`src/pages/Admin/UsersPanel.jsx` & `GET /api/users/admin/directory`):**
+    - Search across name, email, college, course, branch, phone, location, and skills.
+    - Multi-criteria filtering by role, account status (`active`, `suspended`, `deactivated`), and verification status, with sorting and pagination (`page`, `limit`, `totalPages`, summary KPIs).
+  - **Dedicated 8-Section User Details View (`src/pages/Admin/UserDetails.jsx` & `GET /api/users/admin/:id`):**
+    1. Personal Information (name, email, phone, location, avatar, college, course, branch, year, bio/about, social links).
+    2. Skills & Experience (skills, proficiency levels, badges, domain interests, availability).
+    3. Certificates (uploaded credentials, authenticated inline preview modal, approve/under-review/reject controls with custom rejection reasons).
+    4. Resume (authenticated view and download for uploaded PDF resumes).
+    5. Assessments (aptitude evaluation, technical quiz scores, working-style/personality dimensions, and chronological attempt history).
+    6. Team History (current teams, previous teams, applications, invitations, roles, and participation metadata).
+    7. Projects (project submissions with GitHub/Live Demo/Slides links and review feedback, plus teammate reviews received & given).
+    8. Account Information & Administrative Audit Log (registration date, account status controls, assigned role selector, verification toggle, reliability score, and immutable audit trail).
+  - **Security, Account Enforcement & Audit Logging:**
+    - `backend/src/models/AuditLog.js` & `backend/src/utils/audit.js` integrated into `store.js` (dual-mode MongoDB + `db.json`).
+    - Suspended/deactivated accounts blocked at login (`POST /api/auth/login`) and on protected API requests (`protect` middleware).
+    - Direct unauthenticated static access to `/uploads/certificates` and `/uploads/resumes` blocked (`401`), routed through `GET /api/users/documents/:category/:fileName` (restricted strictly to Admin or the owning user).
+    - Non-admin directory/profile calls (`GET /api/users`, `GET /api/users/:id`) strip other users' private contact info, documents, and credentials; Organizers receive `403 Forbidden` on Admin user management endpoints.
+  - **Verification:**
+    - 10/10 Admin User Management & Security checks passed (`scratch/test_admin_user_management.cjs`), plus 56/56 RBAC (`scratch/test_master_rbac.cjs`), 13/13 full regression (`scratch/test_full_suite.cjs`), 42/42 analytics (`scratch/test_step5_analytics.cjs`), and clean Vite production build (`npm run build`).
+
+---
+
 ## 3. Test Matrix & Verification Summary
 
 | Test Suite | Total Tests | Passed | Failed | Status |

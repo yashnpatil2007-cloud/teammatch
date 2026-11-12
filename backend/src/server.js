@@ -46,6 +46,9 @@ app.use(
     credentials: true,
   })
 );
+app.use(['/uploads/certificates', '/uploads/resumes'], (req, res) => {
+  return res.status(401).json({ message: 'Authentication required to access private documents' });
+});
 app.use('/uploads', express.static(require('path').join(__dirname, '../uploads')));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));

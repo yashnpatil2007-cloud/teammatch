@@ -60,8 +60,34 @@ export default function CertificatesPanel({ certs = [], reload }) {
 
   // Modals state
   const [previewCert, setPreviewCert] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [rejectCert, setRejectCert] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+
+  const openPreview = async (cert) => {
+    setPreviewCert(cert);
+    setPreviewUrl('');
+    const raw = cert.fileUrl || cert.url;
+    if (!raw) return;
+    setPreviewLoading(true);
+    try {
+      const url = await userApi.fetchSecureDocumentUrl(raw);
+      setPreviewUrl(url);
+    } catch {
+      setPreviewUrl(resolveFileUrl(raw));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const closePreview = () => {
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl('');
+    setPreviewCert(null);
+  };
 
   const counts = {
     all: certs.length,
@@ -266,7 +292,7 @@ export default function CertificatesPanel({ certs = [], reload }) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setPreviewCert(c)}
+                      onClick={() => openPreview(c)}
                       className="text-[12px] flex items-center gap-1.5"
                     >
                       <Eye className="w-3.5 h-3.5 text-indigo-500" />
@@ -343,7 +369,7 @@ export default function CertificatesPanel({ certs = [], reload }) {
       {previewCert && (
         <Modal
           open={Boolean(previewCert)}
-          onClose={() => setPreviewCert(null)}
+          onClose={closePreview}
           title={`Document Preview: ${previewCert.title}`}
           subtitle={`Submitted by ${previewCert.user?.name} (${previewCert.issuer || 'Self-uploaded'})`}
           wide={true}
@@ -351,30 +377,36 @@ export default function CertificatesPanel({ certs = [], reload }) {
           <div className="space-y-4">
             <div className="flex items-center justify-between text-[12px] text-[var(--text-secondary)]">
               <span>{previewCert.fileName || 'Online document / URL'}</span>
-              <a
-                href={resolveFileUrl(previewCert.fileUrl || previewCert.url)}
-                target="_blank"
-                rel="noreferrer"
-                className="text-[var(--accent)] underline font-semibold flex items-center gap-1"
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> Open in New Tab
-              </a>
+              {previewUrl && (
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[var(--accent)] underline font-semibold flex items-center gap-1"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Open in New Tab
+                </a>
+              )}
             </div>
 
             <div className="rounded-xl overflow-hidden border border-[var(--border)] bg-black/5 dark:bg-black/40 flex items-center justify-center min-h-[350px]">
-              {previewCert.fileName &&
+              {previewLoading ? (
+                <div className="text-[12px] text-[var(--text-secondary)]">Loading secure document preview...</div>
+              ) : !previewUrl ? (
+                <div className="text-[12px] text-red-500">Unable to load document preview.</div>
+              ) : previewCert.fileName &&
               (previewCert.fileName.toLowerCase().endsWith('.jpg') ||
                 previewCert.fileName.toLowerCase().endsWith('.jpeg') ||
                 previewCert.fileName.toLowerCase().endsWith('.png') ||
                 previewCert.fileName.toLowerCase().endsWith('.webp')) ? (
                 <img
-                  src={resolveFileUrl(previewCert.fileUrl || previewCert.url)}
+                  src={previewUrl}
                   alt="Certificate Preview"
                   className="max-h-[500px] w-auto object-contain mx-auto"
                 />
               ) : (
                 <iframe
-                  src={resolveFileUrl(previewCert.fileUrl || previewCert.url)}
+                  src={previewUrl}
                   title="Certificate Document Preview"
                   className="w-full h-[500px]"
                 />
@@ -382,7 +414,7 @@ export default function CertificatesPanel({ certs = [], reload }) {
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setPreviewCert(null)}>
+              <Button variant="ghost" onClick={closePreview}>
                 Close Preview
               </Button>
             </div>

@@ -72,6 +72,39 @@ export default function MemberDashboard() {
   const [certOpen, setCertOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
   const [previewCert, setPreviewCert] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const openCertPreview = async (cert) => {
+    setPreviewCert(cert);
+    setPreviewUrl('');
+    const raw = cert.fileUrl || cert.url;
+    if (!raw) return;
+    setPreviewLoading(true);
+    try {
+      const url = await userApi.fetchSecureDocumentUrl(raw);
+      setPreviewUrl(url);
+    } catch {
+      setPreviewUrl(resolveFileUrl(raw));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const closeCertPreview = () => {
+    if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl('');
+    setPreviewCert(null);
+  };
+
+  const openSecureResume = async (rawUrl) => {
+    try {
+      const url = await userApi.fetchSecureDocumentUrl(rawUrl);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      setErr(errMsg(e));
+    }
+  };
 
   // Forms
   const [pForm, setPForm] = useState({
@@ -906,14 +939,13 @@ export default function MemberDashboard() {
               </div>
 
               <div className="flex items-center gap-2">
-                <a
-                  href={resolveFileUrl(resumeUrl)}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => openSecureResume(resumeUrl)}
                   className="px-4 py-2 rounded-xl bg-[var(--text-primary)] text-[var(--background)] text-[12px] font-semibold flex items-center gap-1.5 hover:opacity-90"
                 >
                   <Eye className="w-3.5 h-3.5" /> View / Download
-                </a>
+                </button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1041,7 +1073,7 @@ export default function MemberDashboard() {
                       {docUrl && (
                         <button
                           type="button"
-                          onClick={() => setPreviewCert(c)}
+                          onClick={() => openCertPreview(c)}
                           className="text-[11px] font-semibold text-[var(--accent)] hover:underline flex items-center gap-1"
                         >
                           <Eye className="w-3 h-3" /> View Doc
@@ -1443,7 +1475,7 @@ export default function MemberDashboard() {
       {previewCert && (
         <Modal
           open={Boolean(previewCert)}
-          onClose={() => setPreviewCert(null)}
+          onClose={closeCertPreview}
           title={`Certificate: ${previewCert.title}`}
           subtitle={`Issued by ${previewCert.issuer || 'Self-uploaded'}`}
           wide={true}
@@ -1451,30 +1483,36 @@ export default function MemberDashboard() {
           <div className="space-y-4">
             <div className="flex items-center justify-between text-[12px] text-[var(--text-secondary)]">
               <span>Status: <strong className="capitalize">{previewCert.status.replace('_', ' ')}</strong></span>
-              <a
-                href={resolveFileUrl(previewCert.fileUrl || previewCert.url)}
-                target="_blank"
-                rel="noreferrer"
-                className="text-[var(--accent)] underline font-semibold flex items-center gap-1"
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> Open in New Tab
-              </a>
+              {previewUrl && (
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[var(--accent)] underline font-semibold flex items-center gap-1"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Open in New Tab
+                </a>
+              )}
             </div>
 
             <div className="rounded-xl overflow-hidden border border-[var(--border)] bg-black/5 dark:bg-black/40 flex items-center justify-center min-h-[350px]">
-              {previewCert.fileName &&
+              {previewLoading ? (
+                <div className="text-[12px] text-[var(--text-secondary)]">Loading secure document preview...</div>
+              ) : !previewUrl ? (
+                <div className="text-[12px] text-red-500">Unable to load document preview.</div>
+              ) : previewCert.fileName &&
               (previewCert.fileName.toLowerCase().endsWith('.jpg') ||
                 previewCert.fileName.toLowerCase().endsWith('.jpeg') ||
                 previewCert.fileName.toLowerCase().endsWith('.png') ||
                 previewCert.fileName.toLowerCase().endsWith('.webp')) ? (
                 <img
-                  src={resolveFileUrl(previewCert.fileUrl || previewCert.url)}
+                  src={previewUrl}
                   alt="Certificate Document"
                   className="max-h-[500px] w-auto object-contain mx-auto"
                 />
               ) : (
                 <iframe
-                  src={resolveFileUrl(previewCert.fileUrl || previewCert.url)}
+                  src={previewUrl}
                   title="Certificate Document Preview"
                   className="w-full h-[500px]"
                 />
@@ -1482,7 +1520,7 @@ export default function MemberDashboard() {
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setPreviewCert(null)}>
+              <Button variant="ghost" onClick={closeCertPreview}>
                 Close Preview
               </Button>
             </div>

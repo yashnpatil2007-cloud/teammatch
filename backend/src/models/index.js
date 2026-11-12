@@ -9,6 +9,7 @@ const Task = require('./Task');
 const Message = require('./Message');
 const Submission = require('./Submission');
 const Notification = require('./Notification');
+const AuditLog = require('./AuditLog');
 
 module.exports = {
   User,
@@ -22,4 +23,5 @@ module.exports = {
   Message,
   Submission,
   Notification,
+  AuditLog,
 };
