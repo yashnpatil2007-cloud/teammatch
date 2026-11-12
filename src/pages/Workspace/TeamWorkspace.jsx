@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Modal, Field, inputCls } from '../../components/ui/Modal';
@@ -38,12 +38,17 @@ export default function TeamWorkspace() {
   const { teamId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const initialTabParam = new URLSearchParams(location.search).get('tab');
+  const validInitialTab = ['tasks', 'milestones', 'submission', 'chat', 'resources', 'timeline'].includes(initialTabParam)
+    ? initialTabParam
+    : 'tasks';
 
   const [workspaceData, setWorkspaceData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
-  const [activeTab, setActiveTab] = useState('tasks'); // 'tasks' | 'milestones' | 'submission' | 'chat' | 'resources' | 'timeline'
+  const [activeTab, setActiveTab] = useState(validInitialTab); // 'tasks' | 'milestones' | 'submission' | 'chat' | 'resources' | 'timeline'
 
   // Task creation modal
   const [taskModalOpen, setTaskModalOpen] = useState(false);

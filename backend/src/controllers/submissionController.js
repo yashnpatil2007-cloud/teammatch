@@ -2,10 +2,25 @@ const { db, save, uid, now } = require('../data/store');
 const { asyncHandler } = require('../utils/generateToken');
 const { createNotification } = require('../utils/notify');
 const { storageService } = require('../services/storageService');
+const { isAssignedOrganizer } = require('./competitionController');
 
 const findTeam = (id) => db.teams.find((t) => t._id === id);
 const findProblem = (id) => db.problems.find((p) => p._id === id);
 const findUser = (id) => db.users.find((u) => u._id === id);
+const findCompetition = (id) => (db.competitions || []).find((c) => c._id === id);
+
+const organizerCanAccessSubmission = (sub, user) => {
+  if (!sub || !user) return false;
+  if (user.role === 'admin') return true;
+  if (user.role !== 'organizer') return false;
+  const prob = findProblem(sub.problem);
+  const team = findTeam(sub.team);
+  const compId = sub.competitionId || prob?.competitionId || team?.competitionId;
+  const comp = compId ? findCompetition(compId) : null;
+  if (prob && String(prob.organizer) === user._id) return true;
+  if (comp && isAssignedOrganizer(comp, user)) return true;
+  return false;
+};
 
 /**
  * Validate URL helper
@@ -27,15 +42,21 @@ const isValidUrl = (str) => {
  */
 const isTeamLeader = (team, user) => {
   if (!team || !user) return false;
-  return user.role === 'admin' || String(team.leader?._id || team.leader) === String(user._id);
+  return user.role === 'leader' && String(team.leader?._id || team.leader) === String(user._id);
 };
 
 /**
  * Verify team view access
  */
-const canViewTeamSubmission = (team, user) => {
+const canViewTeamSubmission = (team, user, sub = null) => {
   if (!team || !user) return false;
-  if (user.role === 'admin' || user.role === 'organizer') return true;
+  if (user.role === 'admin') return true;
+  if (user.role === 'organizer') {
+    const prob = findProblem(team.problem);
+    const compId = sub?.competitionId || team.competitionId || prob?.competitionId;
+    const comp = compId ? findCompetition(compId) : null;
+    return (prob && String(prob.organizer) === user._id) || (comp && isAssignedOrganizer(comp, user));
+  }
   const userId = String(user._id);
   const leaderId = String(team.leader?._id || team.leader);
   if (userId === leaderId) return true;
@@ -62,12 +83,12 @@ const submitProject = asyncHandler(async (req, res) => {
   const team = findTeam(teamId);
   if (!team) return res.status(404).json({ message: 'Team not found' });
 
-  // Only team leader or admin can finalize/create submission
+  // Only owning Team Leader can create/finalize team submission
   if (!isTeamLeader(team, req.user)) {
-    return res.status(403).json({ message: 'Only the team leader or admin can submit or manage team projects' });
+    return res.status(403).json({ message: 'Only the team leader of this team can submit or manage team projects' });
   }
 
-  const validStatuses = ['draft', 'submitted', 'under_review', 'revisions_requested', 'approved'];
+  const validStatuses = ['draft', 'submitted', 'under_review', 'revisions_requested', 'approved', 'rejected'];
   const targetStatus = validStatuses.includes(status) ? status : 'submitted';
 
   if (!title || !String(title).trim()) {
@@ -107,6 +128,7 @@ const submitProject = asyncHandler(async (req, res) => {
       _id: 'sub-' + uid().slice(0, 8),
       team: team._id,
       problem: problem ? problem._id : team.problem,
+      competitionId: problem?.competitionId || team.competitionId || (db.competitions || [])[0]?._id || '',
       submittedBy: req.user._id,
       title: String(title).trim(),
       description: String(description).trim(),
@@ -203,15 +225,24 @@ const getSubmissionByTeam = asyncHandler(async (req, res) => {
  * Organizers & Admins list all submissions
  */
 const getAllSubmissions = asyncHandler(async (req, res) => {
-  const { problemId, status } = req.query;
+  const { problemId, competitionId, status } = req.query;
   db.submissions = db.submissions || [];
 
-  let list = db.submissions.map((s) => {
+  let scoped = [...db.submissions];
+  if (req.user.role === 'organizer') {
+    scoped = scoped.filter((s) => organizerCanAccessSubmission(s, req.user));
+  }
+
+  let list = scoped.map((s) => {
     const team = findTeam(s.team);
     const problem = findProblem(s.problem);
     const user = findUser(s.submittedBy);
+    const compId = s.competitionId || problem?.competitionId || team?.competitionId || '';
+    const comp = compId ? findCompetition(compId) : null;
     return {
       ...s,
+      competitionId: compId,
+      competitionTitle: comp ? comp.title : '',
       teamName: team ? team.name : 'Unknown Team',
       teamMembersCount: team ? (team.members || []).length : 0,
       problemTitle: problem ? problem.title : 'General Problem',
@@ -220,6 +251,9 @@ const getAllSubmissions = asyncHandler(async (req, res) => {
     };
   });
 
+  if (competitionId) {
+    list = list.filter((s) => s.competitionId === competitionId);
+  }
   if (problemId) {
     list = list.filter((s) => s.problem === problemId);
   }
@@ -242,7 +276,7 @@ const getOneSubmission = asyncHandler(async (req, res) => {
   if (!submission) return res.status(404).json({ message: 'Submission not found' });
 
   const team = findTeam(submission.team);
-  if (!canViewTeamSubmission(team, req.user)) {
+  if (!canViewTeamSubmission(team, req.user, submission)) {
     return res.status(403).json({ message: 'Access denied: You cannot view this submission' });
   }
 
@@ -255,18 +289,22 @@ const getOneSubmission = asyncHandler(async (req, res) => {
 
 /**
  * POST /api/submissions/:id/review
- * Organizer/Admin submits score, feedback, revision requests, or approval
+ * Organizer/Admin submits score, feedback, revision requests, approval or rejection
  */
 const reviewSubmission = asyncHandler(async (req, res) => {
   db.submissions = db.submissions || [];
   const submission = db.submissions.find((s) => s._id === req.params.id);
   if (!submission) return res.status(404).json({ message: 'Submission not found' });
 
+  if (req.user.role === 'organizer' && !organizerCanAccessSubmission(submission, req.user)) {
+    return res.status(403).json({ message: 'Access denied: you are not assigned to review submissions for this competition' });
+  }
+
   const { status, score, feedback, revisionsRequired } = req.body;
 
-  const validStatuses = ['under_review', 'revisions_requested', 'approved'];
+  const validStatuses = ['under_review', 'revisions_requested', 'approved', 'rejected'];
   if (!validStatuses.includes(status)) {
-    return res.status(400).json({ message: 'Invalid review status. Must be under_review, revisions_requested, or approved' });
+    return res.status(400).json({ message: 'Invalid review status. Must be under_review, revisions_requested, approved, or rejected' });
   }
 
   if (!feedback || !String(feedback).trim()) {
@@ -312,6 +350,7 @@ const reviewSubmission = asyncHandler(async (req, res) => {
       approved: 'Project Approved 🎉',
       revisions_requested: 'Revisions Requested ⚠️',
       under_review: 'Project Under Review 🔍',
+      rejected: 'Submission Rejected ❌',
     };
 
     const notificationMessages = {
@@ -320,6 +359,7 @@ const reviewSubmission = asyncHandler(async (req, res) => {
       }.`,
       revisions_requested: `Updates requested for "${submission.title}": ${reviewRecord.feedback}`,
       under_review: `Organizer ${req.user.name} has started reviewing your submission "${submission.title}".`,
+      rejected: `Your submission "${submission.title}" was marked rejected by ${req.user.name}: ${reviewRecord.feedback}`,
     };
 
     uniqueRecipients.forEach((recId) => {

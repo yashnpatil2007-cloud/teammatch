@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Modal, Field, inputCls } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { problemApi, errMsg } from '../../services/api';
+import { problemApi, competitionApi, errMsg } from '../../services/api';
 import { Sparkles } from 'lucide-react';
 
 const CATEGORIES = ['AI/ML', 'Web3', 'HealthTech', 'FinTech', 'EdTech', 'IoT', 'Open'];
-const EMPTY = { title: '', description: '', category: 'AI/ML', prize: '₹2L', deadline: '', teamMin: 2, teamMax: 4 };
+const EMPTY = { title: '', description: '', category: 'AI/ML', prize: '₹2L', deadline: '', teamMin: 2, teamMax: 4, competitionId: '', status: 'published', evaluationCriteria: '', submissionGuidelines: '' };
 
-export default function ProblemFormModal({ open, onClose, initial, onSaved }) {
+export default function ProblemFormModal({ open, onClose, initial, onSaved, competitions: propCompetitions }) {
   const [form, setForm] = useState(EMPTY);
+  const [competitions, setCompetitions] = useState(propCompetitions || []);
   const [ai, setAi] = useState(null);
   const [busy, setBusy] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -18,6 +19,11 @@ export default function ProblemFormModal({ open, onClose, initial, onSaved }) {
     if (!open) return;
     setErr('');
     setAi(null);
+    if (propCompetitions && propCompetitions.length > 0) {
+      setCompetitions(propCompetitions);
+    } else {
+      competitionApi.list().then((d) => setCompetitions(d.competitions || [])).catch(() => {});
+    }
     if (initial) {
       setForm({
         title: initial.title || '',
@@ -27,11 +33,15 @@ export default function ProblemFormModal({ open, onClose, initial, onSaved }) {
         deadline: initial.deadline || '',
         teamMin: initial.teamSize?.min ?? 2,
         teamMax: initial.teamSize?.max ?? 4,
+        competitionId: initial.competitionId || '',
+        status: initial.status || 'published',
+        evaluationCriteria: Array.isArray(initial.evaluationCriteria) ? initial.evaluationCriteria.join('\n') : (initial.evaluationCriteria || ''),
+        submissionGuidelines: initial.submissionGuidelines || '',
       });
     } else {
       setForm(EMPTY);
     }
-  }, [open, initial]);
+  }, [open, initial, propCompetitions]);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -63,6 +73,12 @@ export default function ProblemFormModal({ open, onClose, initial, onSaved }) {
         category: form.category,
         prize: form.prize,
         deadline: form.deadline || null,
+        competitionId: form.competitionId || undefined,
+        status: form.status || 'published',
+        evaluationCriteria: form.evaluationCriteria
+          ? form.evaluationCriteria.split('\n').map((s) => s.trim()).filter(Boolean)
+          : [],
+        submissionGuidelines: form.submissionGuidelines || '',
         teamSize: { min: Number(form.teamMin), max: Number(form.teamMax) },
       };
       const data = initial ? await problemApi.update(initial._id, payload) : await problemApi.create(payload);
@@ -84,6 +100,21 @@ export default function ProblemFormModal({ open, onClose, initial, onSaved }) {
         <Field label="Description">
           <textarea value={form.description} onChange={set('description')} rows={4} placeholder="Mention tech like Python, React, Solidity, Figma, AWS..." className={inputCls} required />
         </Field>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Field label="Competition">
+            <select value={form.competitionId} onChange={set('competitionId')} className={inputCls}>
+              <option value="">Default / General Platform</option>
+              {competitions.map((c) => <option key={c._id} value={c._id}>{c.title} ({c.status})</option>)}
+            </select>
+          </Field>
+          <Field label="Publication Status">
+            <select value={form.status} onChange={set('status')} className={inputCls}>
+              <option value="published">Published (Visible to Teams)</option>
+              <option value="draft">Draft (Organizer Only)</option>
+              <option value="closed">Closed</option>
+            </select>
+          </Field>
+        </div>
         <div className="grid sm:grid-cols-3 gap-3">
           <Field label="Category">
             <select value={form.category} onChange={set('category')} className={inputCls}>
@@ -95,6 +126,14 @@ export default function ProblemFormModal({ open, onClose, initial, onSaved }) {
           </Field>
           <Field label="Deadline">
             <input type="date" value={form.deadline || ''} onChange={set('deadline')} className={inputCls} />
+          </Field>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Field label="Evaluation Criteria (one per line)">
+            <textarea value={form.evaluationCriteria} onChange={set('evaluationCriteria')} rows={2} placeholder="Innovation&#10;Technical Architecture&#10;UI/UX Polish" className={inputCls} />
+          </Field>
+          <Field label="Submission Guidelines">
+            <textarea value={form.submissionGuidelines} onChange={set('submissionGuidelines')} rows={2} placeholder="Include GitHub repo, live demo, and pitch deck." className={inputCls} />
           </Field>
         </div>
         <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">

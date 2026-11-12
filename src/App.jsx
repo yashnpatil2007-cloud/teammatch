@@ -34,6 +34,12 @@ function PageLoader() {
 
 function TeamsRouter() {
   const { user } = useAuth();
+  if (user?.role === 'admin') {
+    return <Navigate to="/dashboard/admin/teams" replace />;
+  }
+  if (user?.role === 'organizer') {
+    return <Navigate to="/dashboard/organizer/teams" replace />;
+  }
   if (user?.role === 'member') {
     return <FindTeams />;
   }
@@ -68,24 +74,41 @@ export default function App(){
                 <Route index element={<RoleRedirect/>} />
                 <Route path="profile" element={<Protected><PersonalDetails/></Protected>} />
                 {/* Organizer */}
-                <Route path="organizer" element={<Protected roles={['organizer','admin']}><OrganizerDashboard/></Protected>} />
-                <Route path="organizer/problems" element={<Protected roles={['organizer','admin']}><OrganizerDashboard/></Protected>} />
-                <Route path="organizer/analyzer" element={<Protected roles={['organizer','admin']}><Analyzer/></Protected>} />
+                <Route path="organizer" element={<Protected roles={['organizer']}><OrganizerDashboard/></Protected>} />
+                <Route path="organizer/competitions" element={<Protected roles={['organizer']}><OrganizerDashboard/></Protected>} />
+                <Route path="organizer/create-competition" element={<Protected roles={['organizer']}><OrganizerDashboard/></Protected>} />
+                <Route path="organizer/problems" element={<Protected roles={['organizer']}><OrganizerDashboard/></Protected>} />
+                <Route path="organizer/analyzer" element={<Protected roles={['organizer']}><Analyzer/></Protected>} />
+                <Route path="organizer/teams" element={<Protected roles={['organizer']}><OrganizerDashboard/></Protected>} />
+                <Route path="organizer/submissions" element={<Protected roles={['organizer']}><OrganizerDashboard/></Protected>} />
+                <Route path="organizer/judging" element={<Protected roles={['organizer']}><OrganizerDashboard/></Protected>} />
+                <Route path="organizer/results" element={<Protected roles={['organizer']}><OrganizerDashboard/></Protected>} />
                 {/* Leader */}
-                <Route path="leader" element={<Protected roles={['leader','admin']}><LeaderDashboard/></Protected>} />
-                <Route path="leader/create" element={<Protected roles={['leader','admin']}><LeaderDashboard/></Protected>} />
+                <Route path="leader" element={<Protected roles={['leader']}><LeaderDashboard/></Protected>} />
+                <Route path="leader/create" element={<Protected roles={['leader']}><LeaderDashboard/></Protected>} />
+                <Route path="leader/teams" element={<Protected roles={['leader']}><LeaderDashboard/></Protected>} />
+                <Route path="leader/invitations" element={<Protected roles={['leader']}><LeaderDashboard/></Protected>} />
+                <Route path="leader/requests" element={<Protected roles={['leader']}><LeaderDashboard/></Protected>} />
+                <Route path="leader/workspace" element={<Protected roles={['leader']}><LeaderDashboard/></Protected>} />
+                <Route path="leader/tasks" element={<Protected roles={['leader']}><LeaderDashboard/></Protected>} />
+                <Route path="leader/submissions" element={<Protected roles={['leader']}><LeaderDashboard/></Protected>} />
                 {/* Member */}
-                <Route path="member" element={<Protected roles={['member','admin']}><MemberDashboard/></Protected>} />
-                <Route path="member/profile" element={<Protected roles={['member','admin']}><MemberDashboard/></Protected>} />
-                <Route path="member/quizzes" element={<Protected roles={['member','leader','admin']}><AssessmentCenter/></Protected>} />
-                <Route path="member/assessments" element={<Protected roles={['member','leader','admin']}><AssessmentCenter/></Protected>} />
-                <Route path="member/teams" element={<Protected roles={['member','admin']}><FindTeams/></Protected>} />
+                <Route path="member" element={<Protected roles={['member']}><MemberDashboard/></Protected>} />
+                <Route path="member/my-teams" element={<Protected roles={['member']}><MemberDashboard/></Protected>} />
+                <Route path="member/invitations" element={<Protected roles={['member']}><MemberDashboard/></Protected>} />
+                <Route path="member/requests" element={<Protected roles={['member']}><MemberDashboard/></Protected>} />
+                <Route path="member/workspace" element={<Protected roles={['member']}><MemberDashboard/></Protected>} />
+                <Route path="member/tasks" element={<Protected roles={['member']}><MemberDashboard/></Protected>} />
+                <Route path="member/profile" element={<Protected roles={['member']}><MemberDashboard/></Protected>} />
+                <Route path="member/quizzes" element={<Protected roles={['member','leader']}><AssessmentCenter/></Protected>} />
+                <Route path="member/assessments" element={<Protected roles={['member','leader']}><AssessmentCenter/></Protected>} />
+                <Route path="member/teams" element={<Protected roles={['member']}><FindTeams/></Protected>} />
                 {/* Shared */}
-                <Route path="assessments" element={<Protected><AssessmentCenter/></Protected>} />
+                <Route path="assessments" element={<Protected roles={['member','leader']}><AssessmentCenter/></Protected>} />
                 <Route path="teams" element={<Protected><TeamsRouter/></Protected>} />
                 <Route path="teams/:teamId/workspace" element={<Protected><TeamWorkspace/></Protected>} />
                 <Route path="workspace/:teamId" element={<Protected><TeamWorkspace/></Protected>} />
-                <Route path="matching" element={<Protected roles={['leader','admin']}><Matching/></Protected>} />
+                <Route path="matching" element={<Protected roles={['leader']}><Matching/></Protected>} />
                 <Route path="strength" element={<Protected roles={['leader','admin','organizer']}><Strength/></Protected>} />
                 <Route path="reviews" element={<Protected><Reviews/></Protected>} />
                 <Route path="leaderboard" element={<Protected><Leaderboard/></Protected>} />
@@ -94,9 +117,13 @@ export default function App(){
                 <Route path="admin/submissions" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
                 <Route path="admin/users" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
                 <Route path="admin/users/:userId" element={<Protected roles={['admin']}><AdminUserDetails/></Protected>} />
+                <Route path="admin/organizers" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
+                <Route path="admin/teams" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
+                <Route path="admin/competitions" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
                 <Route path="admin/problems" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
                 <Route path="admin/quizzes" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
                 <Route path="admin/certificates" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
+                <Route path="admin/settings" element={<Protected roles={['admin']}><AdminDashboard/></Protected>} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

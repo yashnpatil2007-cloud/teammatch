@@ -25,6 +25,7 @@ const submissionSchema = new mongoose.Schema(
     _id: { type: String, default: () => 'sub-' + crypto.randomBytes(6).toString('hex') },
     team: { type: String, ref: 'Team', required: true, index: true },
     problem: { type: String, ref: 'ProblemStatement', required: true, index: true },
+    competitionId: { type: String, ref: 'Competition', index: true },
     submittedBy: { type: String, ref: 'User', required: true, index: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true },
@@ -34,7 +35,7 @@ const submissionSchema = new mongoose.Schema(
     attachments: [attachmentSchema],
     status: {
       type: String,
-      enum: ['draft', 'submitted', 'under_review', 'revisions_requested', 'approved'],
+      enum: ['draft', 'submitted', 'under_review', 'revisions_requested', 'approved', 'rejected'],
       default: 'submitted',
       index: true,
     },

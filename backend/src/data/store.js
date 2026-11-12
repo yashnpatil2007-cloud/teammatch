@@ -17,6 +17,8 @@ const {
   Submission,
   Notification,
   AuditLog,
+  Competition,
+  PlatformSetting,
 } = require('../models');
 
 const DB_FILE = path.join(__dirname, 'db.json');
@@ -34,6 +36,9 @@ const collections = [
   'submissions',
   'notifications',
   'auditLogs',
+  'competitions',
+  'settings',
+  'reports',
 ];
 
 const db = {
@@ -49,6 +54,9 @@ const db = {
   submissions: [],
   notifications: [],
   auditLogs: [],
+  competitions: [],
+  settings: [],
+  reports: [],
 };
 
 const state = { mode: 'file' };
@@ -83,6 +91,9 @@ function seedDb() {
     submissions: [],
     notifications: [],
     auditLogs: [],
+    competitions: [],
+    settings: [],
+    reports: [],
   };
 }
 
@@ -106,7 +117,7 @@ async function loadFromMongo() {
     if (fresh.certificates.length) await Certificate.insertMany(fresh.certificates);
   }
 
-  const [uList, pList, tList, qList, rList, cList, aList, tskList, msgList, subList, notifList, auditList] =
+  const [uList, pList, tList, qList, rList, cList, aList, tskList, msgList, subList, notifList, auditList, compList, setList] =
     await Promise.all([
       User.find().lean(),
       ProblemStatement.find().lean(),
@@ -120,6 +131,8 @@ async function loadFromMongo() {
       Submission.find().lean(),
       Notification.find().lean(),
       AuditLog.find().lean(),
+      Competition.find().lean(),
+      PlatformSetting.find().lean(),
     ]);
 
   db.users = uList || [];
@@ -134,6 +147,117 @@ async function loadFromMongo() {
   db.submissions = subList || [];
   db.notifications = notifList || [];
   db.auditLogs = auditList || [];
+  db.competitions = compList || [];
+  db.settings = setList || [];
+  ensureSchemaMigration();
+}
+
+/**
+ * Idempotent non-destructive migration ensuring existing problems, teams, submissions,
+ * organizers, and platform settings cleanly map to the 4-role Competition architecture.
+ */
+function ensureSchemaMigration() {
+  let changed = false;
+  if (!Array.isArray(db.competitions)) { db.competitions = []; changed = true; }
+  if (!Array.isArray(db.settings)) { db.settings = []; changed = true; }
+  if (!Array.isArray(db.reports)) { db.reports = []; changed = true; }
+
+  if (db.settings.length === 0) {
+    db.settings.push({
+      _id: 'platform-default',
+      platformName: 'TeamMatch',
+      allowMemberRegistration: true,
+      allowLeaderRegistration: true,
+      allowOrganizerRegistration: false,
+      requireAdminApprovalForCompetitions: false,
+      maxTeamsPerStudent: 3,
+      maintenanceMode: false,
+      updatedBy: 'system',
+      updatedAt: now(),
+    });
+    changed = true;
+  }
+
+  const organizers = (db.users || []).filter((u) => u.role === 'organizer');
+  const primaryOrgId = organizers[0]?._id || 'u-organizer';
+
+  if (db.competitions.length === 0) {
+    db.competitions.push({
+      _id: 'comp-default',
+      title: 'TeamMatch National Innovation Challenge 2026',
+      description: 'Flagship inter-collegiate hackathon and project challenge across AI/ML, Web3, FinTech, HealthTech, EdTech, and IoT tracks.',
+      bannerUrl: '',
+      rules: 'Teams must collaborate within TeamMatch workspaces, submit original code via GitHub, and include a live demo or presentation.',
+      eligibility: 'Open to verified university students and builders',
+      category: 'National Hackathon',
+      registrationStart: new Date(Date.now() - 14 * 86400000).toISOString(),
+      registrationEnd: new Date(Date.now() + 30 * 86400000).toISOString(),
+      startDate: new Date(Date.now() - 7 * 86400000).toISOString(),
+      endDate: new Date(Date.now() + 45 * 86400000).toISOString(),
+      teamSizeMin: 2,
+      teamSizeMax: 5,
+      status: 'ongoing',
+      organizer: primaryOrgId,
+      assignedOrganizers: organizers.map((o) => o._id),
+      judges: organizers.map((o) => ({ userId: o._id, name: o.name, email: o.email, assignedAt: now() })),
+      resultsPublished: false,
+      winners: [],
+      createdBy: primaryOrgId,
+      createdAt: now(),
+      updatedAt: now(),
+    });
+    changed = true;
+  }
+
+  const defaultCompId = db.competitions[0]?._id || 'comp-default';
+  const problemCompMap = new Map();
+
+  (db.problems || []).forEach((p) => {
+    if (!p.competitionId) {
+      p.competitionId = defaultCompId;
+      changed = true;
+    }
+    if (!p.organizer) {
+      p.organizer = primaryOrgId;
+      changed = true;
+    }
+    problemCompMap.set(p._id, p.competitionId);
+  });
+
+  (db.teams || []).forEach((t) => {
+    const inferredComp = problemCompMap.get(t.problem) || defaultCompId;
+    if (!t.competitionId) {
+      t.competitionId = inferredComp;
+      changed = true;
+    }
+  });
+
+  (db.submissions || []).forEach((s) => {
+    const inferredComp = problemCompMap.get(s.problem) || defaultCompId;
+    if (!s.competitionId) {
+      s.competitionId = inferredComp;
+      changed = true;
+    }
+  });
+
+  // Ensure each organizer user tracks competitions they own or are assigned to
+  organizers.forEach((org) => {
+    const assigned = db.competitions
+      .filter((c) => c.organizer === org._id || (c.assignedOrganizers || []).includes(org._id))
+      .map((c) => c._id);
+    if (!Array.isArray(org.assignedCompetitions)) {
+      org.assignedCompetitions = assigned;
+      changed = true;
+    } else {
+      const merged = Array.from(new Set([...org.assignedCompetitions, ...assigned]));
+      if (merged.length !== org.assignedCompetitions.length) {
+        org.assignedCompetitions = merged;
+        changed = true;
+      }
+    }
+  });
+
+  return changed;
 }
 
 function loadFromFile() {
@@ -153,12 +277,16 @@ function loadFromFile() {
           });
         });
       }
+      if (ensureSchemaMigration()) {
+        persist();
+      }
       return;
     }
   } catch (e) {
     console.warn('Could not read local datastore, reseeding:', e.message);
   }
   applySeed();
+  ensureSchemaMigration();
   persist();
 }
 
@@ -272,6 +400,18 @@ async function persist() {
               updateOne: { filter: { _id: a._id }, update: { $set: a }, upsert: true },
             }))
           ),
+        db.competitions.length &&
+          Competition.bulkWrite(
+            db.competitions.map((c) => ({
+              updateOne: { filter: { _id: c._id }, update: { $set: c }, upsert: true },
+            }))
+          ),
+        db.settings.length &&
+          PlatformSetting.bulkWrite(
+            db.settings.map((s) => ({
+              updateOne: { filter: { _id: s._id }, update: { $set: s }, upsert: true },
+            }))
+          ),
       ].filter(Boolean);
 
       await Promise.all(syncOps);
@@ -300,6 +440,7 @@ module.exports = {
   now,
   reset,
   initStore,
+  ensureSchemaMigration,
   storeMode: () => state.mode,
   DB_FILE,
   collections,

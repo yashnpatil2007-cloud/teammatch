@@ -1,6 +1,7 @@
 const { db, save, uid, now } = require('../data/store');
 const { asyncHandler } = require('../utils/generateToken');
 const { createNotification } = require('../utils/notify');
+const { isAssignedOrganizer } = require('./competitionController');
 
 const findTeam = (id) => db.teams.find((t) => t._id === id);
 const findUser = (id) => db.users.find((u) => u._id === id);
@@ -8,11 +9,17 @@ const findProblem = (id) => db.problems.find((p) => p._id === id);
 
 /**
  * Verifies if user has permission to access team workspace.
- * Members, Leaders, Organizers, and Admins can view.
+ * Active team members/leaders, Admins, and Organizers assigned to the team's competition can view.
  */
 const verifyTeamAccess = (team, user) => {
   if (!team || !user) return false;
-  if (user.role === 'admin' || user.role === 'organizer') return true;
+  if (user.role === 'admin') return true;
+  if (user.role === 'organizer') {
+    const prob = findProblem(team.problem);
+    const compId = team.competitionId || prob?.competitionId;
+    const comp = compId ? (db.competitions || []).find((c) => c._id === compId) : null;
+    return (prob && String(prob.organizer) === user._id) || (comp && isAssignedOrganizer(comp, user));
+  }
   const userId = String(user._id);
   const leaderId = String(team.leader?._id || team.leader);
   if (userId === leaderId) return true;
@@ -24,7 +31,7 @@ const verifyTeamAccess = (team, user) => {
  */
 const verifyTeamMember = (team, user) => {
   if (!team || !user) return false;
-  if (user.role === 'admin') return true;
+  if (user.role === 'admin' || user.role === 'organizer') return false;
   const userId = String(user._id);
   const leaderId = String(team.leader?._id || team.leader);
   if (userId === leaderId) return true;

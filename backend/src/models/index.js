@@ -10,6 +10,8 @@ const Message = require('./Message');
 const Submission = require('./Submission');
 const Notification = require('./Notification');
 const AuditLog = require('./AuditLog');
+const Competition = require('./Competition');
+const PlatformSetting = require('./PlatformSetting');
 
 module.exports = {
   User,
@@ -24,4 +26,6 @@ module.exports = {
   Submission,
   Notification,
   AuditLog,
+  Competition,
+  PlatformSetting,
 };

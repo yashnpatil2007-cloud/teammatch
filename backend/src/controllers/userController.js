@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 const { db, save, uid, now } = require('../data/store');
 const { asyncHandler } = require('../utils/generateToken');
+const { createNotification } = require('../utils/notify');
 const { publicUser } = require('../middleware/auth');
 const { CERTIFICATES_DIR, RESUMES_DIR, AVATARS_DIR } = require('../middleware/upload');
 const { storageService } = require('../services/storageService');
@@ -1044,6 +1046,333 @@ const getSecureDocument = asyncHandler(async (req, res) => {
   res.sendFile(resolvedPath);
 });
 
+/**
+ * GET /api/users/admin/organizers
+ * Admin lists all organizers with their assigned competitions & created problem/competition counts
+ */
+const adminListOrganizers = asyncHandler(async (req, res) => {
+  const organizers = (db.users || []).filter((u) => u.role === 'organizer');
+  const comps = db.competitions || [];
+  const problems = db.problems || [];
+
+  const list = organizers.map((org) => {
+    const clean = publicUser(org);
+    const assignedComps = comps.filter(
+      (c) =>
+        c.organizer === org._id ||
+        c.createdBy === org._id ||
+        (c.assignedOrganizers || []).includes(org._id) ||
+        (org.assignedCompetitions || []).includes(c._id)
+    );
+    const problemCount = problems.filter((p) => p.organizer === org._id).length;
+    return {
+      ...clean,
+      assignedCompetitions: assignedComps.map((c) => c._id),
+      assignedCompetitionDetails: assignedComps.map((c) => ({
+        _id: c._id,
+        title: c.title,
+        status: c.status,
+      })),
+      problemCount,
+    };
+  });
+
+  res.json(list);
+});
+
+/**
+ * POST /api/users/admin/organizers
+ * Admin creates a new Organizer account or promotes an existing user to Organizer
+ */
+const adminCreateOrganizer = asyncHandler(async (req, res) => {
+  const { name, email, password, userId, assignedCompetitions = [] } = req.body;
+
+  if (userId) {
+    const existing = (db.users || []).find((u) => u._id === userId);
+    if (!existing) return res.status(404).json({ message: 'User not found' });
+    if (existing.role === 'admin') {
+      return res.status(400).json({ message: 'Cannot change an administrator into an organizer via this action' });
+    }
+    const prevRole = existing.role;
+    existing.role = 'organizer';
+    existing.isVerified = true;
+    existing.assignedCompetitions = Array.isArray(assignedCompetitions)
+      ? Array.from(new Set(assignedCompetitions.map(String)))
+      : existing.assignedCompetitions || [];
+
+    (db.competitions || []).forEach((c) => {
+      if (existing.assignedCompetitions.includes(c._id)) {
+        c.assignedOrganizers = Array.from(new Set([...(c.assignedOrganizers || []), existing._id]));
+      }
+    });
+
+    existing.updatedAt = now();
+    save();
+    recordAudit({
+      actor: req.user,
+      action: 'admin_promote_organizer',
+      targetType: 'user',
+      targetId: existing._id,
+      details: `Promoted ${existing.name} (${existing.email}) from ${prevRole} to organizer`,
+      previousValue: { role: prevRole },
+      newValue: { role: 'organizer', assignedCompetitions: existing.assignedCompetitions },
+    });
+    return res.status(200).json(publicUser(existing));
+  }
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'name, email, and password are required to create an organizer account' });
+  }
+  const cleanEmail = String(email).trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    return res.status(400).json({ message: 'Please provide a valid email address' });
+  }
+  if ((db.users || []).some((u) => u.email.toLowerCase() === cleanEmail)) {
+    return res.status(400).json({ message: 'An account with this email already exists' });
+  }
+  if (String(password).length < 6) {
+    return res.status(400).json({ message: 'Password must be at least 6 characters' });
+  }
+
+  const hashedPassword = await bcrypt.hash(String(password), 10);
+  const compIds = Array.isArray(assignedCompetitions) ? Array.from(new Set(assignedCompetitions.map(String))) : [];
+  const organizer = {
+    _id: 'u-' + uid().slice(0, 10),
+    name: String(name).trim(),
+    email: cleanEmail,
+    password: hashedPassword,
+    role: 'organizer',
+    avatar: '',
+    bio: '',
+    skills: [],
+    certificates: [],
+    quizScores: [],
+    assignedCompetitions: compIds,
+    reliabilityScore: 85,
+    totalReviews: 0,
+    averageRating: 0,
+    isVerified: true,
+    accountStatus: 'active',
+    createdAt: now(),
+  };
+
+  db.users.push(organizer);
+  (db.competitions || []).forEach((c) => {
+    if (compIds.includes(c._id)) {
+      c.assignedOrganizers = Array.from(new Set([...(c.assignedOrganizers || []), organizer._id]));
+    }
+  });
+
+  save();
+  recordAudit({
+    actor: req.user,
+    action: 'admin_create_organizer',
+    targetType: 'user',
+    targetId: organizer._id,
+    details: `Created organizer account ${organizer.name} (${organizer.email})`,
+    newValue: { role: 'organizer', assignedCompetitions: compIds },
+  });
+
+  res.status(201).json(publicUser(organizer));
+});
+
+/**
+ * PUT /api/users/admin/organizers/:id/assign
+ * Admin assigns competitions to an organizer or revokes organizer access
+ */
+const adminAssignOrganizer = asyncHandler(async (req, res) => {
+  const user = (db.users || []).find((u) => u._id === req.params.id);
+  if (!user) return res.status(404).json({ message: 'Organizer user not found' });
+
+  const { assignedCompetitions, revoke = false, fallbackRole = 'member' } = req.body;
+
+  if (revoke) {
+    if (user._id === req.user._id) {
+      return res.status(400).json({ message: 'Cannot revoke your own account' });
+    }
+    const prevRole = user.role;
+    user.role = ['member', 'leader'].includes(fallbackRole) ? fallbackRole : 'member';
+    user.assignedCompetitions = [];
+    (db.competitions || []).forEach((c) => {
+      c.assignedOrganizers = (c.assignedOrganizers || []).filter((oid) => oid !== user._id);
+    });
+    user.updatedAt = now();
+    createNotification({
+      recipient: user._id,
+      sender: req.user._id,
+      type: 'system',
+      title: 'Organizer Access Revoked',
+      message: 'Your competition organizer privileges have been revoked by an administrator.',
+      link: '/dashboard',
+    });
+    save();
+    recordAudit({
+      actor: req.user,
+      action: 'admin_revoke_organizer',
+      targetType: 'user',
+      targetId: user._id,
+      details: `Revoked organizer privileges from ${user.name} (${user.email})`,
+      previousValue: { role: prevRole },
+      newValue: { role: user.role },
+    });
+    return res.json({ message: 'Organizer access revoked', user: publicUser(user) });
+  }
+
+  if (user.role !== 'organizer') {
+    user.role = 'organizer';
+  }
+  const compIds = Array.isArray(assignedCompetitions) ? Array.from(new Set(assignedCompetitions.map(String))) : [];
+  const prevComps = user.assignedCompetitions || [];
+  user.assignedCompetitions = compIds;
+
+  (db.competitions || []).forEach((c) => {
+    const currentlyAssigned = (c.assignedOrganizers || []).includes(user._id);
+    const shouldBeAssigned = compIds.includes(c._id);
+    if (shouldBeAssigned && !currentlyAssigned) {
+      c.assignedOrganizers = [...(c.assignedOrganizers || []), user._id];
+    } else if (!shouldBeAssigned && currentlyAssigned && c.organizer !== user._id) {
+      c.assignedOrganizers = (c.assignedOrganizers || []).filter((oid) => oid !== user._id);
+    }
+  });
+
+  user.updatedAt = now();
+  createNotification({
+    recipient: user._id,
+    sender: req.user._id,
+    type: 'system',
+    title: 'Competition Assignments Updated',
+    message: `Administrator updated your competition assignments (${compIds.length} assigned).`,
+    link: '/dashboard/organizer/competitions',
+  });
+
+  save();
+  recordAudit({
+    actor: req.user,
+    action: 'admin_assign_organizer',
+    targetType: 'user',
+    targetId: user._id,
+    details: `Updated competition assignments for organizer ${user.name}`,
+    previousValue: { assignedCompetitions: prevComps },
+    newValue: { assignedCompetitions: compIds },
+  });
+
+  res.json({ message: 'Organizer competition assignments updated', user: publicUser(user) });
+});
+
+/**
+ * POST /api/users/reports
+ * Authenticated user reports inappropriate user or content
+ */
+const createReport = asyncHandler(async (req, res) => {
+  const { targetType = 'user', targetId, reason, details = '' } = req.body;
+  if (!targetId || !reason || !String(reason).trim()) {
+    return res.status(400).json({ message: 'targetId and reason are required' });
+  }
+  db.reports = db.reports || [];
+  const report = {
+    _id: 'rep-' + uid().slice(0, 8),
+    reportedBy: req.user._id,
+    reporterName: req.user.name,
+    targetType,
+    targetId: String(targetId),
+    reason: String(reason).trim(),
+    details: String(details || '').trim(),
+    status: 'open',
+    resolutionNote: '',
+    reviewedBy: '',
+    createdAt: now(),
+  };
+  db.reports.unshift(report);
+  save();
+  res.status(201).json(report);
+});
+
+/**
+ * GET /api/users/admin/reports
+ */
+const adminGetReports = asyncHandler(async (req, res) => {
+  const list = [...(db.reports || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  res.json(list);
+});
+
+/**
+ * PUT /api/users/admin/reports/:reportId
+ */
+const adminResolveReport = asyncHandler(async (req, res) => {
+  const report = (db.reports || []).find((r) => r._id === req.params.reportId);
+  if (!report) return res.status(404).json({ message: 'Report not found' });
+
+  const { status = 'resolved', resolutionNote = '' } = req.body;
+  if (!['open', 'reviewing', 'resolved', 'dismissed'].includes(status)) {
+    return res.status(400).json({ message: 'Invalid report status' });
+  }
+  report.status = status;
+  report.resolutionNote = String(resolutionNote || '').trim();
+  report.reviewedBy = req.user._id;
+  report.updatedAt = now();
+  save();
+  recordAudit({
+    actor: req.user,
+    action: 'admin_resolve_report',
+    targetType: 'report',
+    targetId: report._id,
+    details: `Marked report ${report._id} as ${status}`,
+  });
+  res.json(report);
+});
+
+/**
+ * GET /api/users/admin/settings & PUT /api/users/admin/settings
+ */
+const adminGetSettings = asyncHandler(async (req, res) => {
+  const settings = (db.settings || [])[0] || {
+    _id: 'platform-default',
+    platformName: 'TeamMatch',
+    allowMemberRegistration: true,
+    allowLeaderRegistration: true,
+    allowOrganizerRegistration: false,
+    requireAdminApprovalForCompetitions: false,
+    maxTeamsPerStudent: 3,
+    maintenanceMode: false,
+  };
+  res.json(settings);
+});
+
+const adminUpdateSettings = asyncHandler(async (req, res) => {
+  db.settings = db.settings || [];
+  let settings = db.settings[0];
+  if (!settings) {
+    settings = { _id: 'platform-default' };
+    db.settings.push(settings);
+  }
+  const fields = [
+    'platformName',
+    'allowMemberRegistration',
+    'allowLeaderRegistration',
+    'allowOrganizerRegistration',
+    'requireAdminApprovalForCompetitions',
+    'maxTeamsPerStudent',
+    'maintenanceMode',
+  ];
+  const prev = { ...settings };
+  fields.forEach((f) => {
+    if (req.body[f] !== undefined) settings[f] = req.body[f];
+  });
+  settings.updatedBy = req.user._id;
+  settings.updatedAt = now();
+  save();
+  recordAudit({
+    actor: req.user,
+    action: 'admin_update_settings',
+    targetType: 'settings',
+    targetId: settings._id,
+    details: 'Administrator updated platform settings and permissions',
+    previousValue: prev,
+    newValue: settings,
+  });
+  res.json(settings);
+});
+
 module.exports = {
   getLeaderboard,
   listUsers,
@@ -1067,4 +1396,12 @@ module.exports = {
   adminUpdateAccountStatus,
   getAdminAuditLogs,
   getSecureDocument,
+  adminListOrganizers,
+  adminCreateOrganizer,
+  adminAssignOrganizer,
+  createReport,
+  adminGetReports,
+  adminResolveReport,
+  adminGetSettings,
+  adminUpdateSettings,
 };

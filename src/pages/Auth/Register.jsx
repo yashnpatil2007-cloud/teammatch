@@ -41,17 +41,19 @@ export default function Register(){
  <form onSubmit={handle} className="w-full max-w-[480px] space-y-5">
  <div><div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface)] border border-[var(--border)] text-[11px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]"><Sparkles className="w-3 h-3 text-[var(--accent)]"/> Create account</div><h2 className="mt-3 text-[28px] font-extrabold text-[var(--text-primary)]">Join TeamMatch</h2><p className="text-[13px] text-[var(--text-secondary)]">Choose your role and get started in 30 seconds.</p></div>
 
- <div className="grid grid-cols-3 gap-2">
+ <div className="grid grid-cols-2 gap-3">
  {[
- {id:'organizer',label:'Organizer',desc:'Publish hackathons'},
- {id:'leader',label:'Team Leader',desc:'Create teams'},
- {id:'member',label:'Team Member',desc:'Join teams'},
+ {id:'member',label:'Team Member',desc:'Discover & join existing teams'},
+ {id:'leader',label:'Team Leader',desc:'Create teams & recruit members'},
  ].map(r=>(
  <button key={r.id} type="button" onClick={()=>setForm({...form,role:r.id})}
  className={`p-4 rounded-2xl border text-left ${form.role===r.id?'bg-[var(--text-primary)] text-[var(--background)] border-[var(--text-primary)]':'bg-[var(--card)] text-[var(--text-primary)] border-[var(--border)] hover:bg-[var(--surface)]'}`}>
  <div className="text-[13px] font-bold">{r.label}</div><div className={`text-[11px] ${form.role===r.id?'opacity-70':'text-[var(--text-secondary)]'}`}>{r.desc}</div>
  </button>
  ))}
+ </div>
+ <div className="text-[11px] text-[var(--text-secondary)]">
+   Need a Competition Organizer account? Contact a Platform Administrator for role assignment.
  </div>
 
  <div className="space-y-4">

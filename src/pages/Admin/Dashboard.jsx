@@ -2,9 +2,13 @@ import { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { statsApi, userApi, problemApi, quizApi, errMsg } from '../../services/api';
-import { Users, FileText, Brain, Award, Shield, RefreshCw, LayoutDashboard, ShieldCheck, FileCheck, CheckCircle2, AlertTriangle, MessageSquare, CheckSquare, Clock } from 'lucide-react';
+import { Users, FileText, Brain, Award, Shield, RefreshCw, LayoutDashboard, ShieldCheck, FileCheck, CheckCircle2, AlertTriangle, MessageSquare, CheckSquare, Clock, UserCheck, UsersRound, Trophy, Settings } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import UsersPanel from './UsersPanel';
+import OrganizersPanel from './OrganizersPanel';
+import TeamMonitoringPanel from './TeamMonitoringPanel';
+import CompetitionsOversightPanel from './CompetitionsOversightPanel';
+import PlatformSettingsPanel from './PlatformSettingsPanel';
 import ProblemsPanel from './ProblemsPanel';
 import QuizzesPanel from './QuizzesPanel';
 import CertificatesPanel from './CertificatesPanel';
@@ -12,16 +16,20 @@ import SubmissionsReviewPanel from '../Organizer/SubmissionsReviewPanel';
 
 const TABS = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard, to: '/dashboard/admin' },
-  { key: 'submissions', label: 'Submissions', icon: FileCheck, to: '/dashboard/admin/submissions' },
   { key: 'users', label: 'Users', icon: ShieldCheck, to: '/dashboard/admin/users' },
+  { key: 'organizers', label: 'Organizers', icon: UserCheck, to: '/dashboard/admin/organizers' },
+  { key: 'teams', label: 'Team Monitoring', icon: UsersRound, to: '/dashboard/admin/teams' },
+  { key: 'competitions', label: 'Competitions', icon: Trophy, to: '/dashboard/admin/competitions' },
   { key: 'problems', label: 'Problems', icon: FileText, to: '/dashboard/admin/problems' },
-  { key: 'quizzes', label: 'Quizzes', icon: Brain, to: '/dashboard/admin/quizzes' },
+  { key: 'submissions', label: 'Submissions', icon: FileCheck, to: '/dashboard/admin/submissions' },
   { key: 'certificates', label: 'Certificates', icon: Award, to: '/dashboard/admin/certificates' },
+  { key: 'quizzes', label: 'Assessments', icon: Brain, to: '/dashboard/admin/quizzes' },
+  { key: 'settings', label: 'Settings', icon: Settings, to: '/dashboard/admin/settings' },
 ];
 
 const tabFromPath = (path) => {
   const seg = path.split('/').filter(Boolean).pop();
-  return ['users', 'problems', 'quizzes', 'certificates', 'submissions'].includes(seg) ? seg : 'overview';
+  return ['users', 'organizers', 'teams', 'competitions', 'problems', 'quizzes', 'certificates', 'submissions', 'settings'].includes(seg) ? seg : 'overview';
 };
 
 export default function AdminDashboard() {
@@ -283,9 +291,13 @@ export default function AdminDashboard() {
 
       {tab === 'submissions' && <SubmissionsReviewPanel />}
       {tab === 'users' && <UsersPanel users={users} reload={load} />}
+      {tab === 'organizers' && <OrganizersPanel />}
+      {tab === 'teams' && <TeamMonitoringPanel />}
+      {tab === 'competitions' && <CompetitionsOversightPanel />}
       {tab === 'problems' && <ProblemsPanel problems={problems} reload={load} />}
       {tab === 'quizzes' && <QuizzesPanel quizzes={quizzes} reload={load} />}
       {tab === 'certificates' && <CertificatesPanel certs={certs} reload={load} />}
+      {tab === 'settings' && <PlatformSettingsPanel />}
 
       {loading && <div className="text-center text-[12px] text-[var(--text-secondary)] py-4">Loading admin data...</div>}
     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Modal, Field, inputCls } from '../../components/ui/Modal';
@@ -34,8 +34,28 @@ import {
   ArrowRight,
   Kanban,
   Send,
+  LayoutDashboard,
+  Briefcase,
+  CheckSquare,
+  Inbox,
+  User,
 } from 'lucide-react';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
+
+const MEMBER_TABS = [
+  { key: 'overview', label: 'Overview', icon: LayoutDashboard, to: '/dashboard/member' },
+  { key: 'my-teams', label: 'My Teams', icon: Users, to: '/dashboard/member/my-teams' },
+  { key: 'invitations', label: 'Invitations', icon: Inbox, to: '/dashboard/member/invitations' },
+  { key: 'requests', label: 'Join Requests', icon: Send, to: '/dashboard/member/requests' },
+  { key: 'workspace', label: 'Team Workspace', icon: Briefcase, to: '/dashboard/member/workspace' },
+  { key: 'tasks', label: 'My Tasks', icon: CheckSquare, to: '/dashboard/member/tasks' },
+  { key: 'profile', label: 'Profile & Docs', icon: User, to: '/dashboard/member/profile' },
+];
+
+const memberTabFromPath = (path) => {
+  const seg = path.split('/').filter(Boolean).pop();
+  return ['my-teams', 'invitations', 'requests', 'workspace', 'tasks', 'profile'].includes(seg) ? seg : 'overview';
+};
 
 const formatBytes = (bytes) => {
   if (!bytes || bytes === 0) return '0 B';
@@ -60,9 +80,12 @@ const certStatusBadge = (s) => {
 
 export default function MemberDashboard() {
   const { user, refresh } = useAuth();
+  const location = useLocation();
+  const tab = memberTabFromPath(location.pathname);
   const [profile, setProfile] = useState(null);
   const [teams, setTeams] = useState([]);
   const [availableTeams, setAvailableTeams] = useState([]);
+  const [assignedTasks, setAssignedTasks] = useState([]);
   const [joiningTeamId, setJoiningTeamId] = useState(null);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -150,6 +173,45 @@ export default function MemberDashboard() {
       setProfile(p);
       setTeams(t || []);
       setAvailableTeams(allT || []);
+
+      const joined = (t || []).filter(
+        (tm) =>
+          (tm.members || []).some((m) => String(m._id || m) === user?._id) ||
+          String(tm.leader?._id || tm.leader) === user?._id
+      );
+      if (joined.length > 0) {
+        const wsTasks = [];
+        await Promise.all(
+          joined.map(async (tm) => {
+            try {
+              const ws = await teamApi.workspace(tm._id);
+              (ws.tasks || []).forEach((task) => {
+                const assigneeId = String(task.assignee?._id || task.assignee || '');
+                if (!assigneeId || assigneeId === String(user?._id)) {
+                  wsTasks.push({ ...task, teamId: tm._id, teamName: tm.name });
+                }
+              });
+            } catch {
+              // ignore workspace fetch issue for inactive teams
+            }
+          })
+        );
+        setAssignedTasks(wsTasks);
+      } else {
+        setAssignedTasks([]);
+      }
+    } catch (e) {
+      setErr(errMsg(e));
+    }
+  };
+
+  const updateTaskStatus = async (teamId, taskId, status) => {
+    setErr('');
+    try {
+      await teamApi.updateTask(teamId, taskId, { status });
+      setAssignedTasks((prev) => prev.map((tk) => (tk._id === taskId ? { ...tk, status } : tk)));
+      setMsg(`Task marked as ${status}.`);
+      setTimeout(() => setMsg(''), 3000);
     } catch (e) {
       setErr(errMsg(e));
     }
@@ -442,7 +504,7 @@ export default function MemberDashboard() {
         <div>
           <h1 className="text-[24px] font-extrabold">Welcome back, {user?.name}</h1>
           <p className="text-[13px] text-[var(--text-secondary)]">
-            Student Discovery Hub • Build your credibility with verified skills and certificates.
+            Team Member Hub • Join teams, collaborate on tasks, and grow your verified profile.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -453,6 +515,26 @@ export default function MemberDashboard() {
             <Pencil className="w-4 h-4" /> Edit Profile
           </Button>
         </div>
+      </div>
+
+      {/* Role Sub-Navigation */}
+      <div className="flex flex-wrap gap-2">
+        {MEMBER_TABS.map((it) => (
+          <Link
+            key={it.key}
+            to={it.to}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-[12px] font-semibold border ${
+              tab === it.key
+                ? 'bg-[var(--text-primary)] text-[var(--background)] border-transparent'
+                : 'bg-[var(--card)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            <it.icon className="w-3.5 h-3.5" /> {it.label}
+            {it.key === 'invitations' && incomingInvites.length > 0 && (
+              <span className="px-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold">{incomingInvites.length}</span>
+            )}
+          </Link>
+        ))}
       </div>
 
       {/* Notifications */}
@@ -467,8 +549,8 @@ export default function MemberDashboard() {
         </div>
       )}
 
-      {/* Incoming Team Invitations Banner */}
-      {incomingInvites.length > 0 && (
+      {/* Incoming Team Invitations */}
+      {(tab === 'invitations' || (tab === 'overview' && incomingInvites.length > 0)) && (
         <Card className="p-5 border-2 border-indigo-500/30 bg-gradient-to-r from-indigo-50/50 via-transparent to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20">
           <h3 className="font-bold text-[14px] flex items-center gap-2">
             <Users className="w-4 h-4 text-indigo-500" />
@@ -477,44 +559,50 @@ export default function MemberDashboard() {
           <p className="text-[12px] text-[var(--text-secondary)] mt-0.5">
             Team leaders have invited you to join their project team.
           </p>
-          <div className="mt-3 space-y-2">
-            {incomingInvites.map(({ team }) => (
-              <div
-                key={team._id}
-                className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-[var(--surface)] border border-[var(--border)]"
-              >
-                <div>
-                  <div className="font-bold text-[13px]">{team.name}</div>
-                  <div className="text-[11px] text-[var(--text-secondary)]">
-                    Problem: {team.problem?.title || 'Custom Problem'} • Leader: {team.leader?.name || 'Leader'}
+          {incomingInvites.length === 0 ? (
+            <div className="mt-3 p-6 text-center text-[13px] text-[var(--text-secondary)] border border-dashed rounded-xl">
+              No pending invitations right now. Explore teams or complete your profile to get invited!
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {incomingInvites.map(({ team }) => (
+                <div
+                  key={team._id}
+                  className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-[var(--surface)] border border-[var(--border)]"
+                >
+                  <div>
+                    <div className="font-bold text-[13px]">{team.name}</div>
+                    <div className="text-[11px] text-[var(--text-secondary)]">
+                      Problem: {team.problem?.title || 'Custom Problem'} • Leader: {team.leader?.name || 'Leader'}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="gradient"
+                      size="sm"
+                      onClick={() => respondInvite(team._id, 'accept')}
+                      className="text-[12px] bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1"
+                    >
+                      <Check className="w-3.5 h-3.5" /> Accept
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => respondInvite(team._id, 'decline')}
+                      className="text-[12px] text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center gap-1"
+                    >
+                      <X className="w-3.5 h-3.5" /> Decline
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="gradient"
-                    size="sm"
-                    onClick={() => respondInvite(team._id, 'accept')}
-                    className="text-[12px] bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1"
-                  >
-                    <Check className="w-3.5 h-3.5" /> Accept
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => respondInvite(team._id, 'decline')}
-                    className="text-[12px] text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center gap-1"
-                  >
-                    <X className="w-3.5 h-3.5" /> Decline
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
       {/* Pending Join Requests Tracker */}
-      {myPendingRequests.length > 0 && (
+      {(tab === 'requests' || (tab === 'overview' && myPendingRequests.length > 0)) && (
         <Card className="p-5 border border-amber-500/30 bg-amber-50/30 dark:bg-amber-950/20">
           <h3 className="font-bold text-[14px] flex items-center gap-2 text-amber-800 dark:text-amber-300">
             <Clock className="w-4 h-4 text-amber-600" />
@@ -523,28 +611,90 @@ export default function MemberDashboard() {
           <p className="text-[12px] text-[var(--text-secondary)] mt-0.5">
             Your join requests are currently under review by team leaders.
           </p>
-          <div className="mt-3 grid sm:grid-cols-2 gap-3">
-            {myPendingRequests.map((t) => (
-              <div
-                key={t._id}
-                className="p-3 rounded-xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-between gap-3"
-              >
-                <div className="min-w-0">
-                  <div className="font-bold text-[13px] truncate">{t.name}</div>
-                  <div className="text-[11px] text-[var(--text-secondary)] truncate">
-                    {t.problem?.title || 'Innovation Challenge'}
+          {myPendingRequests.length === 0 ? (
+            <div className="mt-3 p-6 text-center text-[13px] text-[var(--text-secondary)] border border-dashed rounded-xl">
+              You have no pending join requests. Visit <Link to="/dashboard/teams" className="text-[#6C63FF] underline">Find Teams</Link> to request to join a team.
+            </div>
+          ) : (
+            <div className="mt-3 grid sm:grid-cols-2 gap-3">
+              {myPendingRequests.map((t) => (
+                <div
+                  key={t._id}
+                  className="p-3 rounded-xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <div className="font-bold text-[13px] truncate">{t.name}</div>
+                    <div className="text-[11px] text-[var(--text-secondary)] truncate">
+                      {t.problem?.title || 'Innovation Challenge'}
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 shrink-0">
+                    Under Review
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* My Assigned Tasks View */}
+      {(tab === 'tasks' || tab === 'overview') && (
+        <Card className="p-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="font-bold text-[16px] flex items-center gap-2">
+                <CheckSquare className="w-4 h-4 text-[#6C63FF]" /> My Assigned Tasks ({assignedTasks.length})
+              </h3>
+              <p className="text-[12px] text-[var(--text-secondary)]">
+                Tasks assigned to you or unassigned in your active team workspaces. Update progress inline.
+              </p>
+            </div>
+            {myJoinedTeams[0] && (
+              <Link to={`/dashboard/teams/${myJoinedTeams[0]._id}/workspace?tab=tasks`} className="text-[12px] font-semibold text-[#6C63FF] hover:underline">
+                Open Full Board →
+              </Link>
+            )}
+          </div>
+
+          {assignedTasks.length === 0 ? (
+            <div className="p-6 text-center text-[13px] text-[var(--text-secondary)] border border-dashed border-[var(--border)] rounded-2xl">
+              No assigned tasks across your teams yet.
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {assignedTasks.slice(0, tab === 'tasks' ? 50 : 5).map((tk) => (
+                <div key={tk._id} className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-bold text-[13px]">{tk.title}</div>
+                    <div className="text-[11px] text-[var(--text-secondary)]">
+                      Team: <strong className="text-[var(--text-primary)]">{tk.teamName}</strong> • Priority: {tk.priority || 'Medium'}
+                      {tk.dueDate ? ` • Due ${String(tk.dueDate).slice(0, 10)}` : ''}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={tk.status || 'To Do'}
+                      onChange={(e) => updateTaskStatus(tk.teamId, tk._id, e.target.value)}
+                      className="px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[12px] font-semibold"
+                    >
+                      <option value="To Do">To Do</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Done">Done</option>
+                    </select>
+                    <Link to={`/dashboard/teams/${tk.teamId}/workspace?tab=tasks`} className="text-[11px] font-bold text-[#6C63FF] px-2.5 py-1.5 rounded-lg bg-[#6C63FF]/10">
+                      Workspace
+                    </Link>
                   </div>
                 </div>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 shrink-0">
-                  Under Review
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
       {/* My Joined Teams / Active Workspaces */}
+      {(tab === 'overview' || tab === 'my-teams' || tab === 'workspace') && (
       <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -620,9 +770,10 @@ export default function MemberDashboard() {
           )}
         </div>
       </Card>
+      )}
 
       {/* Recommended Open Teams Discovery Card */}
-      {recommendedTeams.length > 0 && (
+      {(tab === 'overview' || tab === 'my-teams') && recommendedTeams.length > 0 && (
         <Card className="p-6 bg-gradient-to-br from-[var(--surface)] to-[var(--card)] border-[var(--border)]">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -707,6 +858,8 @@ export default function MemberDashboard() {
       )}
 
       {/* Main Profile & Skills Section */}
+      {(tab === 'overview' || tab === 'profile') && (
+      <>
       <div className="grid lg:grid-cols-3 gap-6">
         <Card className="p-6 lg:col-span-2">
           <h3 className="font-bold flex items-center gap-2">
@@ -1109,6 +1262,8 @@ export default function MemberDashboard() {
           )}
         </div>
       </Card>
+      </>
+      )}
 
       {/* Edit Profile Modal */}
       <Modal

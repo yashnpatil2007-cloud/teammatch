@@ -5,6 +5,8 @@ const {
   getOne,
   createTeam,
   updateTeam,
+  updateMemberRoles,
+  adminModerateTeam,
   removeTeam,
   removeMember,
   match,
@@ -31,14 +33,16 @@ const router = express.Router();
 
 router.get('/', protect, getTeams);
 router.get('/mine', protect, getMine);
-router.get('/match', protect, authorize('leader', 'admin'), match);
-router.post('/', protect, authorize('leader', 'admin'), createTeam);
+router.get('/match', protect, authorize('leader'), match);
+router.post('/', protect, authorize('leader'), createTeam);
+router.put('/admin/:teamId/moderate', protect, authorize('admin'), adminModerateTeam);
 router.get('/:teamId', protect, getOne);
 router.get('/:teamId/analyze', protect, analyze);
-router.put('/:teamId', protect, authorize('leader', 'admin'), updateTeam);
+router.put('/:teamId', protect, authorize('leader'), updateTeam);
+router.put('/:teamId/member-roles', protect, authorize('leader'), updateMemberRoles);
 router.delete('/:teamId', protect, authorize('leader', 'admin'), removeTeam);
-router.post('/:teamId/invite', protect, authorize('leader', 'admin'), invite);
-router.post('/:teamId/request-join', protect, requestJoin);
+router.post('/:teamId/invite', protect, authorize('leader'), invite);
+router.post('/:teamId/request-join', protect, authorize('member'), requestJoin);
 router.post('/:teamId/respond', protect, respondInvite);
 router.post('/:teamId/remove-member', protect, removeMember);
 

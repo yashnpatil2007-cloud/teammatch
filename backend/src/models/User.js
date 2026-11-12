@@ -89,6 +89,7 @@ const userSchema = new mongoose.Schema(
     totalReviews: { type: Number, default: 0 },
     averageRating: { type: Number, default: 0 },
     isVerified: { type: Boolean, default: false, index: true },
+    assignedCompetitions: [{ type: String }],
     accountStatus: {
       type: String,
       enum: ['active', 'suspended', 'deactivated'],

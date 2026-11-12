@@ -111,6 +111,8 @@ export default function SubmissionsReviewPanel() {
     switch (status) {
       case 'approved':
         return 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20';
+      case 'rejected':
+        return 'bg-rose-500/10 text-rose-600 border border-rose-500/20';
       case 'revisions_requested':
         return 'bg-red-500/10 text-red-600 border border-red-500/20';
       case 'under_review':
@@ -179,6 +181,7 @@ export default function SubmissionsReviewPanel() {
             <option value="under_review">Under Review</option>
             <option value="revisions_requested">Revisions Requested</option>
             <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
             <option value="draft">Drafts</option>
           </select>
         </div>
@@ -305,6 +308,7 @@ export default function SubmissionsReviewPanel() {
                   <option value="approved">Approved 🎉</option>
                   <option value="revisions_requested">Revisions Requested ⚠️</option>
                   <option value="under_review">Under Review 🔍</option>
+                  <option value="rejected">Rejected ❌</option>
                 </select>
               </Field>
 

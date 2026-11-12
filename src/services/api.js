@@ -59,12 +59,26 @@ export const problemApi = {
   analyze: (title, description) => API.post('/problems/analyze', { title, description }).then((r) => r.data),
 };
 
+export const competitionApi = {
+  list: (params) => API.get('/competitions', { params }).then((r) => r.data),
+  get: (id) => API.get(`/competitions/${id}`).then((r) => r.data),
+  create: (payload) => API.post('/competitions', payload).then((r) => r.data),
+  update: (id, payload) => API.put(`/competitions/${id}`, payload).then((r) => r.data),
+  updateStatus: (id, status) => API.patch(`/competitions/${id}/status`, { status }).then((r) => r.data),
+  assignJudges: (id, payload) => API.post(`/competitions/${id}/judges`, payload).then((r) => r.data),
+  publishResults: (id, payload) => API.post(`/competitions/${id}/results`, payload).then((r) => r.data),
+  teams: (id) => API.get(`/competitions/${id}/teams`).then((r) => r.data),
+  remove: (id, force = false) => API.delete(`/competitions/${id}${force ? '?force=true' : ''}`).then((r) => r.data),
+};
+
 export const teamApi = {
   list: (params) => API.get('/teams', { params }).then((r) => r.data),
   mine: () => API.get('/teams/mine').then((r) => r.data),
   get: (id) => API.get(`/teams/${id}`).then((r) => r.data),
   create: (payload) => API.post('/teams', payload).then((r) => r.data),
   update: (id, payload) => API.put(`/teams/${id}`, payload).then((r) => r.data),
+  updateMemberRoles: (id, memberRoles) => API.put(`/teams/${id}/member-roles`, { memberRoles }).then((r) => r.data),
+  moderate: (id, payload) => API.put(`/teams/admin/${id}/moderate`, payload).then((r) => r.data),
   remove: (id) => API.delete(`/teams/${id}`).then((r) => r.data),
   removeMember: (id, userId) => API.post(`/teams/${id}/remove-member`, { userId }).then((r) => r.data),
   match: (paramsOrProblemId) => {
@@ -122,6 +136,14 @@ export const userApi = {
   adminGetDetails: (id) => API.get(`/users/admin/${id}`).then((r) => r.data),
   adminUpdateStatus: (id, payload) => API.put(`/users/admin/${id}/status`, payload).then((r) => r.data),
   adminAuditLogs: (id) => API.get(`/users/admin/${id}/audit-logs`).then((r) => r.data),
+  adminOrganizers: () => API.get('/users/admin/organizers').then((r) => r.data),
+  adminCreateOrganizer: (payload) => API.post('/users/admin/organizers', payload).then((r) => r.data),
+  adminAssignOrganizer: (id, payload) => API.put(`/users/admin/organizers/${id}/assign`, payload).then((r) => r.data),
+  reportUser: (payload) => API.post('/users/reports', payload).then((r) => r.data),
+  adminReports: () => API.get('/users/admin/reports').then((r) => r.data),
+  adminResolveReport: (reportId, payload) => API.put(`/users/admin/reports/${reportId}`, payload).then((r) => r.data),
+  adminSettings: () => API.get('/users/admin/settings').then((r) => r.data),
+  adminUpdateSettings: (payload) => API.put('/users/admin/settings', payload).then((r) => r.data),
   fetchSecureDocumentUrl: async (fileUrlOrPath) => {
     if (!fileUrlOrPath) return '';
     if (fileUrlOrPath.startsWith('http://') || fileUrlOrPath.startsWith('https://')) {

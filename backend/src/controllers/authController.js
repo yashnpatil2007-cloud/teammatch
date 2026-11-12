@@ -42,6 +42,21 @@ const register = asyncHandler(async (req, res) => {
   if (!VALID_ROLES.includes(role)) {
     return res.status(400).json({ message: 'Invalid role' });
   }
+  if (role === 'admin') {
+    return res.status(403).json({ message: 'Administrator accounts cannot be self-registered' });
+  }
+  const settings = (db.settings || [])[0] || {};
+  if (role === 'organizer' && !settings.allowOrganizerRegistration) {
+    return res.status(403).json({
+      message: 'Organizer accounts must be created or assigned by an Administrator',
+    });
+  }
+  if (role === 'leader' && settings.allowLeaderRegistration === false) {
+    return res.status(403).json({ message: 'Team Leader registration is currently disabled' });
+  }
+  if (role === 'member' && settings.allowMemberRegistration === false) {
+    return res.status(403).json({ message: 'Team Member registration is currently disabled' });
+  }
   if (String(password).length < 6) {
     return res.status(400).json({ message: 'Password must be at least 6 characters' });
   }

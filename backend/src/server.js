@@ -63,6 +63,7 @@ const authLimiter = rateLimit({
 });
 
 app.use('/api/auth', authLimiter, require('./routes/auth'));
+app.use('/api/competitions', require('./routes/competition'));
 app.use('/api/problems', require('./routes/problem'));
 app.use('/api/teams', require('./routes/team'));
 app.use('/api/users', require('./routes/user'));

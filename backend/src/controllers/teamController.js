@@ -1,6 +1,8 @@
 const { db, save, uid, now } = require('../data/store');
 const { asyncHandler } = require('../utils/generateToken');
 const { createNotification } = require('../utils/notify');
+const { recordAudit } = require('../utils/audit');
+const { isAssignedOrganizer } = require('./competitionController');
 const {
   teamCoverage,
   calculateMatch,
@@ -95,8 +97,32 @@ const recompute = (team) => {
 };
 
 const getTeams = asyncHandler(async (req, res) => {
-  const { problemId, status } = req.query;
+  const { problemId, status, competitionId, scope } = req.query;
   let list = [...db.teams];
+
+  if (req.user.role === 'organizer') {
+    // Organizers monitor teams registered in their assigned/created competitions
+    const myCompIds = new Set(
+      (db.competitions || [])
+        .filter((c) => isAssignedOrganizer(c, req.user))
+        .map((c) => c._id)
+    );
+    const myProbIds = new Set(
+      (db.problems || [])
+        .filter((p) => String(p.organizer) === req.user._id || myCompIds.has(p.competitionId))
+        .map((p) => p._id)
+    );
+    list = list.filter((t) => myCompIds.has(t.competitionId) || myProbIds.has(t.problem));
+  } else if (req.user.role !== 'admin' && scope !== 'all') {
+    list = list.filter(
+      (t) =>
+        (t.status !== 'archived' && t.status !== 'moderated') ||
+        String(t.leader) === req.user._id ||
+        (t.members || []).includes(req.user._id)
+    );
+  }
+
+  if (competitionId) list = list.filter((t) => t.competitionId === competitionId);
   if (problemId) list = list.filter((t) => t.problem === problemId);
   if (status) list = list.filter((t) => t.status === status);
   res.json(list.map(populateTeam));
@@ -116,24 +142,37 @@ const getMine = asyncHandler(async (req, res) => {
 const getOne = asyncHandler(async (req, res) => {
   const team = db.teams.find((t) => t._id === req.params.teamId);
   if (!team) return res.status(404).json({ message: 'Team not found' });
+  if (req.user.role === 'organizer') {
+    const prob = findProblem(team.problem);
+    const comp = (db.competitions || []).find((c) => c._id === (team.competitionId || prob?.competitionId));
+    if (comp && !isAssignedOrganizer(comp, req.user) && String(prob?.organizer) !== req.user._id) {
+      return res.status(403).json({ message: 'Access denied: team belongs to an unrelated competition' });
+    }
+  }
   res.json(populateTeam(team));
 });
 
 const createTeam = asyncHandler(async (req, res) => {
-  const { name, problemId } = req.body;
+  if (req.user.role !== 'leader') {
+    return res.status(403).json({ message: 'Only Team Leaders can create student teams' });
+  }
+  const { name, problemId, competitionId } = req.body;
   if (!name || !String(name).trim()) return res.status(400).json({ message: 'Team name is required' });
   const problem = findProblem(problemId) || db.problems[0];
   if (!problem) return res.status(400).json({ message: 'Valid problem statement required' });
 
   const leaderUser = db.users.find((u) => u._id === req.user._id);
   const teamId = 't-' + uid().slice(0, 8);
+  const resolvedCompId = competitionId || problem.competitionId || (db.competitions || [])[0]?._id || '';
   const team = {
     _id: teamId,
     name: String(name).trim(),
     problem: problem._id,
+    competitionId: resolvedCompId,
     leader: req.user._id,
     leaderName: leaderUser?.name,
     members: [req.user._id],
+    memberRoles: [{ userId: req.user._id, teamRole: 'Team Leader / Coordinator' }],
     invites: [],
     coverage: 0,
     balanceScore: 1,
@@ -155,6 +194,9 @@ const createTeam = asyncHandler(async (req, res) => {
  * GET /api/teams/match?problemId=...&teamId=...&minMatch=...&role=...&onlyVerified=...
  */
 const match = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'leader') {
+    return res.status(403).json({ message: 'Find Members matching is restricted to Team Leaders' });
+  }
   const { problemId, teamId, minMatch, role, onlyVerified } = req.query;
 
   let team = null;
@@ -163,6 +205,9 @@ const match = asyncHandler(async (req, res) => {
   if (teamId) {
     team = db.teams.find((t) => t._id === teamId);
     if (team) {
+      if (String(team.leader?._id || team.leader) !== req.user._id) {
+        return res.status(403).json({ message: 'You can only match candidates for your own teams' });
+      }
       problem = findProblem(team.problem);
     }
   }
@@ -337,6 +382,18 @@ const analyze = asyncHandler(async (req, res) => {
   const team = db.teams.find((t) => t._id === req.params.teamId);
   if (!team) return res.status(404).json({ message: 'Team not found' });
   const problem = findProblem(team.problem);
+  const comp = (db.competitions || []).find((c) => c._id === (team.competitionId || problem?.competitionId));
+  const isMember =
+    String(team.leader?._id || team.leader) === req.user._id ||
+    (team.members || []).some((m) => String(m._id || m) === req.user._id);
+  const isAllowedOrganizer =
+    req.user.role === 'organizer' &&
+    ((comp && isAssignedOrganizer(comp, req.user)) || String(problem?.organizer) === req.user._id);
+
+  if (req.user.role !== 'admin' && !isMember && !isAllowedOrganizer) {
+    return res.status(403).json({ message: 'Access denied: you are not authorized to analyze this team' });
+  }
+
   const members = (team.members || []).map(findUser).filter(Boolean);
   const analysis = teamCoverage(problem ? problem.requiredSkills : [], members);
 
@@ -352,13 +409,16 @@ const analyze = asyncHandler(async (req, res) => {
  * POST /api/teams/:teamId/invite
  */
 const invite = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'leader') {
+    return res.status(403).json({ message: 'Only Team Leaders can send team invitations' });
+  }
   const team = db.teams.find((t) => t._id === req.params.teamId);
   if (!team) return res.status(404).json({ message: 'Team not found' });
 
-  // Only team leader or admin can invite members to this team
+  // Only owning team leader can invite members to this team
   const isLeader = String(team.leader?._id || team.leader) === req.user._id;
-  if (!isLeader && req.user.role !== 'admin') {
-    return res.status(403).json({ message: 'Only the team leader or admin can invite members to this team.' });
+  if (!isLeader) {
+    return res.status(403).json({ message: 'Only the team leader of this team can invite members.' });
   }
 
   const problem = findProblem(team.problem);
@@ -480,8 +540,8 @@ const respondInvite = asyncHandler(async (req, res) => {
   const invite = (team.invites || []).find((i) => (i.user?._id || i.user) === userId);
   if (!invite) return res.status(404).json({ message: 'Invite not found' });
 
-  const isLeader = String(team.leader?._id || team.leader) === req.user._id || req.user.role === 'admin';
-  const isTargetUser = req.user._id === String(userId) || req.user.role === 'admin';
+  const isLeader = req.user.role === 'leader' && String(team.leader?._id || team.leader) === req.user._id;
+  const isTargetUser = req.user._id === String(userId);
 
   if (action === 'accept' || action === 'decline') {
     // Only the invited user can accept or decline their own invitation
@@ -492,9 +552,9 @@ const respondInvite = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: `Cannot ${action} invitation with current status "${invite.status}".` });
     }
   } else if (action === 'approve' || action === 'reject') {
-    // Only the team leader or admin can approve or reject join requests
+    // Only the owning team leader can approve or reject join requests
     if (!isLeader) {
-      return res.status(403).json({ message: 'Only the team leader or admin can approve or reject join requests.' });
+      return res.status(403).json({ message: 'Only the team leader can approve or reject join requests.' });
     }
     if (invite.status !== 'requested') {
       return res.status(400).json({ message: `Cannot ${action} join request with current status "${invite.status}".` });
@@ -537,7 +597,7 @@ const respondInvite = asyncHandler(async (req, res) => {
 });
 
 const canManage = (team, user) =>
-  user.role === 'admin' || String(team.leader?._id || team.leader) === user._id;
+  user.role === 'leader' && String(team.leader?._id || team.leader) === user._id;
 
 const updateTeam = asyncHandler(async (req, res) => {
   const team = db.teams.find((t) => t._id === req.params.teamId);
@@ -545,9 +605,11 @@ const updateTeam = asyncHandler(async (req, res) => {
   if (!canManage(team, req.user)) return res.status(403).json({ message: 'Only the team leader can edit this team' });
   const { name, status, problemId } = req.body;
   if (name !== undefined && String(name).trim()) team.name = String(name).trim();
-  if (status !== undefined) team.status = status;
+  if (status !== undefined && ['forming', 'complete', 'submitted'].includes(status)) team.status = status;
   if (problemId !== undefined && findProblem(problemId)) {
+    const p = findProblem(problemId);
     team.problem = problemId;
+    team.competitionId = p.competitionId || team.competitionId;
     recompute(team);
   }
   team.updatedAt = now();
@@ -555,13 +617,88 @@ const updateTeam = asyncHandler(async (req, res) => {
   res.json(populateTeam(team));
 });
 
+const updateMemberRoles = asyncHandler(async (req, res) => {
+  const team = db.teams.find((t) => t._id === req.params.teamId);
+  if (!team) return res.status(404).json({ message: 'Team not found' });
+  if (!canManage(team, req.user)) {
+    return res.status(403).json({ message: 'Only the team leader can assign team roles' });
+  }
+  const { memberRoles } = req.body;
+  if (!Array.isArray(memberRoles)) {
+    return res.status(400).json({ message: 'memberRoles array is required' });
+  }
+  const memberIds = new Set((team.members || []).map((m) => String(m._id || m)));
+  team.memberRoles = memberRoles
+    .filter((mr) => mr.userId && memberIds.has(String(mr.userId)))
+    .map((mr) => ({ userId: String(mr.userId), teamRole: String(mr.teamRole || '').trim() }));
+  team.updatedAt = now();
+  save();
+  res.json(populateTeam(team));
+});
+
+const adminModerateTeam = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Only Admin can moderate or archive teams' });
+  }
+  const team = db.teams.find((t) => t._id === req.params.teamId);
+  if (!team) return res.status(404).json({ message: 'Team not found' });
+
+  const { status = 'archived', reason = '' } = req.body;
+  if (!['forming', 'archived', 'moderated'].includes(status)) {
+    return res.status(400).json({ message: 'Invalid moderation status. Must be forming, archived, or moderated' });
+  }
+
+  const prevStatus = team.status;
+  team.status = status;
+  team.moderationReason = String(reason || '').trim();
+  team.moderatedBy = req.user._id;
+  team.moderatedAt = now();
+  team.updatedAt = now();
+
+  (team.members || []).forEach((m) => {
+    const mid = String(m._id || m);
+    createNotification({
+      recipient: mid,
+      sender: req.user._id,
+      type: 'system',
+      title: `Team Status Moderated (${team.name})`,
+      message: `Administrator updated team "${team.name}" status to ${status}${team.moderationReason ? `: ${team.moderationReason}` : '.'}`,
+      link: `/dashboard/teams/${team._id}/workspace`,
+    });
+  });
+
+  save();
+  recordAudit({
+    actor: req.user,
+    action: 'admin_moderate_team',
+    targetType: 'team',
+    targetId: team._id,
+    details: `Moderated team "${team.name}" from ${prevStatus} to ${status}${team.moderationReason ? ` — Reason: ${team.moderationReason}` : ''}`,
+    previousValue: { status: prevStatus },
+    newValue: { status, reason: team.moderationReason },
+  });
+
+  res.json({ message: `Team status updated to ${status}`, team: populateTeam(team) });
+});
+
 const removeTeam = asyncHandler(async (req, res) => {
   const team = db.teams.find((t) => t._id === req.params.teamId);
   if (!team) return res.status(404).json({ message: 'Team not found' });
-  if (!canManage(team, req.user)) return res.status(403).json({ message: 'Only the team leader can delete this team' });
+  if (!canManage(team, req.user) && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Only the team leader or admin can delete this team' });
+  }
   const idx = db.teams.indexOf(team);
   db.teams.splice(idx, 1);
   save();
+  if (req.user.role === 'admin') {
+    recordAudit({
+      actor: req.user,
+      action: 'admin_delete_team',
+      targetType: 'team',
+      targetId: team._id,
+      details: `Admin deleted team "${team.name}"`,
+    });
+  }
   res.json({ message: 'Team removed' });
 });
 
@@ -570,11 +707,14 @@ const removeMember = asyncHandler(async (req, res) => {
   if (!team) return res.status(404).json({ message: 'Team not found' });
   const { userId } = req.body;
   const isSelf = userId === req.user._id;
-  if (!isSelf && !canManage(team, req.user)) return res.status(403).json({ message: 'Not allowed' });
+  if (!isSelf && !canManage(team, req.user) && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Not allowed' });
+  }
   if (String(team.leader?._id || team.leader) === userId) {
     return res.status(400).json({ message: 'The leader cannot be removed. Delete the team instead.' });
   }
   team.members = (team.members || []).filter((m) => (m._id || m) !== userId);
+  team.memberRoles = (team.memberRoles || []).filter((mr) => mr.userId !== userId);
   team.invites = (team.invites || []).filter((i) => (i.user?._id || i.user) !== userId);
   recompute(team);
   save();
@@ -587,6 +727,8 @@ module.exports = {
   getOne,
   createTeam,
   updateTeam,
+  updateMemberRoles,
+  adminModerateTeam,
   removeTeam,
   removeMember,
   match,

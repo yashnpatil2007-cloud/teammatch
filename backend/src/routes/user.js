@@ -22,6 +22,14 @@ const {
   adminUpdateAccountStatus,
   getAdminAuditLogs,
   getSecureDocument,
+  adminListOrganizers,
+  adminCreateOrganizer,
+  adminAssignOrganizer,
+  createReport,
+  adminGetReports,
+  adminResolveReport,
+  adminGetSettings,
+  adminUpdateSettings,
 } = require('../controllers/userController');
 const { protect, authorize } = require('../middleware/auth');
 const { uploadCertificate, uploadResume, uploadAvatar } = require('../middleware/upload');
@@ -30,7 +38,15 @@ const router = express.Router();
 router.get('/leaderboard', getLeaderboard);
 router.get('/me/quiz-history', protect, quizHistory);
 router.get('/documents/:category/:fileName', protect, getSecureDocument);
+router.post('/reports', protect, createReport);
 router.get('/admin/directory', protect, authorize('admin'), adminDirectory);
+router.get('/admin/organizers', protect, authorize('admin'), adminListOrganizers);
+router.post('/admin/organizers', protect, authorize('admin'), adminCreateOrganizer);
+router.put('/admin/organizers/:id/assign', protect, authorize('admin'), adminAssignOrganizer);
+router.get('/admin/reports', protect, authorize('admin'), adminGetReports);
+router.put('/admin/reports/:reportId', protect, authorize('admin'), adminResolveReport);
+router.get('/admin/settings', protect, authorize('admin'), adminGetSettings);
+router.put('/admin/settings', protect, authorize('admin'), adminUpdateSettings);
 router.get('/admin/:id/audit-logs', protect, authorize('admin'), getAdminAuditLogs);
 router.put('/admin/:id/status', protect, authorize('admin'), adminUpdateAccountStatus);
 router.get('/admin/:id', protect, authorize('admin'), adminGetUserDetails);

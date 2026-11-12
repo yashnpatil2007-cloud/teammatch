@@ -260,7 +260,10 @@
     - Direct unauthenticated static access to `/uploads/certificates` and `/uploads/resumes` blocked (`401`), routed through `GET /api/users/documents/:category/:fileName` (restricted strictly to Admin or the owning user).
     - Non-admin directory/profile calls (`GET /api/users`, `GET /api/users/:id`) strip other users' private contact info, documents, and credentials; Organizers receive `403 Forbidden` on Admin user management endpoints.
   - **Verification:**
-    - 10/10 Admin User Management & Security checks passed (`scratch/test_admin_user_management.cjs`), plus 56/56 RBAC (`scratch/test_master_rbac.cjs`), 13/13 full regression (`scratch/test_full_suite.cjs`), 42/42 analytics (`scratch/test_step5_analytics.cjs`), and clean Vite production build (`npm run build`).
+    - 10/10 Admin User Management & Security checks passed (`scratch/test_admin_user_management.cjs`), plus 56/56 RBAC (`scratch/test_master_rbac.cjs`), 15/15 full regression (`scratch/test_full_suite.cjs`), 42/42 analytics (`scratch/test_step5_analytics.cjs`), and 48/48 4-role architecture checks (`scratch/test_four_role_architecture.cjs`), alongside a clean Vite production build (`npm run build`).
+- **Four-Role Architecture & Complete Website Correction:**
+  - Strict separation enforced across **Admin**, **Organizer**, **Team Leader**, and **Team Member** roles on both frontend routes/sidebars and backend APIs.
+  - Added `Competition` & `PlatformSetting` schemas (`backend/src/models/Competition.js`, `PlatformSetting.js`), competition-scoped Organizer authorization (`backend/src/controllers/competitionController.js`, `/api/competitions`), privilege escalation prevention on `/api/auth/register`, Admin Organizer/Team-Monitoring/Competition-Oversight/Settings panels (`src/pages/Admin/`), Organizer Competition/Judging/Results panels (`src/pages/Organizer/`), Team Leader functional role assignment & request workflows (`src/pages/Leader/Dashboard.jsx`), and Team Member invitations/requests/assigned-tasks views (`src/pages/Member/Dashboard.jsx`).
 
 ---
 
