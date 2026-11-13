@@ -29,6 +29,108 @@ class StorageService {
     return this.provider !== 'local';
   }
 
+  getStorageStatus() {
+    return {
+      provider: this.provider,
+      isPersistent: this.isPersistent(),
+      warning:
+        this.provider === 'local'
+          ? 'Persistent cloud storage is not configured (running in local filesystem mode). On hosting platforms with ephemeral filesystems like Render, uploaded images and files will not survive container restarts. Configure AWS S3 (S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) or Cloudinary (CLOUDINARY_URL) for permanent production storage.'
+          : null,
+    };
+  }
+
+  /**
+   * Validates image MIME type, file extension, file size, and actual magic bytes content.
+   * Throws an Error with a user-friendly message if validation fails, and unlinks the temp file.
+   */
+  validateImageFile(file) {
+    if (!file) throw new Error('Please select an image file to upload.');
+
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedMimes.includes(file.mimetype)) {
+      if (file.path && fs.existsSync(file.path)) {
+        try { fs.unlinkSync(file.path); } catch (_) {}
+      }
+      throw new Error('Invalid image type. Only JPG, JPEG, PNG, and WEBP formats are allowed.');
+    }
+
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    if (!allowedExts.includes(ext)) {
+      if (file.path && fs.existsSync(file.path)) {
+        try { fs.unlinkSync(file.path); } catch (_) {}
+      }
+      throw new Error('Invalid image extension. File extension must be .jpg, .jpeg, .png, or .webp.');
+    }
+
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      if (file.path && fs.existsSync(file.path)) {
+        try { fs.unlinkSync(file.path); } catch (_) {}
+      }
+      throw new Error(`File size (${(file.size / 1024 / 1024).toFixed(1)} MB) exceeds maximum allowed size of 5 MB.`);
+    }
+
+    // Magic Bytes inspection to prevent disguised files/payloads
+    if (file.path && fs.existsSync(file.path)) {
+      try {
+        const buffer = Buffer.alloc(12);
+        const fd = fs.openSync(file.path, 'r');
+        fs.readSync(fd, buffer, 0, 12, 0);
+        fs.closeSync(fd);
+
+        const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+        const isPng =
+          buffer[0] === 0x89 &&
+          buffer[1] === 0x50 &&
+          buffer[2] === 0x4e &&
+          buffer[3] === 0x47 &&
+          buffer[4] === 0x0d &&
+          buffer[5] === 0x0a &&
+          buffer[6] === 0x1a &&
+          buffer[7] === 0x0a;
+        const isWebp =
+          buffer.toString('utf8', 0, 4) === 'RIFF' &&
+          buffer.toString('utf8', 8, 12) === 'WEBP';
+
+        if (!isJpeg && !isPng && !isWebp) {
+          try { fs.unlinkSync(file.path); } catch (_) {}
+          throw new Error('File content does not match a valid image header (JPG, PNG, or WEBP).');
+        }
+      } catch (err) {
+        if (file.path && fs.existsSync(file.path)) {
+          try { fs.unlinkSync(file.path); } catch (_) {}
+        }
+        throw err;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Safely removes a file from local disk or cloud storage
+   */
+  async deleteFile(fileUrlOrPath, folder = '') {
+    if (!fileUrlOrPath) return false;
+    try {
+      // Local file cleanup
+      if (fileUrlOrPath.startsWith('/uploads/') || fileUrlOrPath.includes('/uploads/')) {
+        const cleanRel = fileUrlOrPath.replace(/^.*\/uploads\//, '');
+        const fullPath = path.join(__dirname, '../../uploads', cleanRel);
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+          return true;
+        }
+      }
+      return true;
+    } catch (err) {
+      console.warn(`Failed to delete stored file (${fileUrlOrPath}): ${err.message}`);
+      return false;
+    }
+  }
+
   /**
    * Resolves public accessible URL for a stored file
    * @param {string} localPathOrUrl - Local relative path or absolute cloud URL
@@ -104,8 +206,7 @@ class StorageService {
 
 const storageService = new StorageService();
 
-module.exports = {
-  storageService,
-  StorageService,
-};
+module.exports = storageService;
+module.exports.storageService = storageService;
+module.exports.StorageService = StorageService;
 

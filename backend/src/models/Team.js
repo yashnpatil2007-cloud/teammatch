@@ -39,6 +39,8 @@ const teamSchema = new mongoose.Schema(
   {
     _id: { type: String, default: () => 't-' + crypto.randomBytes(6).toString('hex') },
     name: { type: String, required: true, trim: true },
+    avatar: { type: String, default: '' },
+    logoUrl: { type: String, default: '' },
     problem: { type: String, ref: 'ProblemStatement', required: true, index: true },
     competitionId: { type: String, ref: 'Competition', index: true },
     leader: { type: String, ref: 'User', required: true, index: true },

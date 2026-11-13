@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Modal, Field, inputCls } from '../../components/ui/Modal';
-import { competitionApi, errMsg } from '../../services/api';
+import ImageUpload from '../../components/ui/ImageUpload';
+import { competitionApi, errMsg, resolveFileUrl } from '../../services/api';
 import {
   Trophy, Plus, Pencil, Users, Scale, Award, CheckCircle2,
   AlertTriangle, RefreshCw, Calendar, Eye, EyeOff, Trash2
@@ -298,6 +299,16 @@ export default function CompetitionsPanel({ initialMode = 'list', focusMode = nu
       <div className="space-y-3">
         {competitions.map((c) => (
           <div key={c._id} className="p-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] space-y-3">
+            {c.bannerUrl && (
+              <div className="w-full h-36 rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--surface-sunken)]">
+                <img
+                  src={resolveFileUrl(c.bannerUrl)}
+                  alt={c.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              </div>
+            )}
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1 max-w-2xl">
                 <div className="flex flex-wrap items-center gap-2">
@@ -421,10 +432,28 @@ export default function CompetitionsPanel({ initialMode = 'list', focusMode = nu
               <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={inputCls} />
             </Field>
           </div>
+          <ImageUpload
+            label="Competition Banner"
+            hint="Upload a banner image from your device (JPG, PNG, or WEBP, max 5 MB)."
+            aspectRatio="banner"
+            value={form.bannerUrl}
+            onChange={(url) => setForm((prev) => ({ ...prev, bannerUrl: url }))}
+            onUpload={async (file, onProgress) => {
+              const fd = new FormData();
+              fd.append('banner', file);
+              return await competitionApi.uploadBanner(fd, onProgress);
+            }}
+            onRemove={async () => {
+              if (editing && editing._id && form.bannerUrl) {
+                try {
+                  await competitionApi.deleteBanner(editing._id);
+                } catch {
+                  // ignore
+                }
+              }
+            }}
+          />
           <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="Banner Image URL (Optional)">
-              <input value={form.bannerUrl} onChange={(e) => setForm({ ...form, bannerUrl: e.target.value })} placeholder="https://..." className={inputCls} />
-            </Field>
             <Field label="Status">
               <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inputCls}>
                 <option value="draft">Draft</option>
@@ -590,3 +619,4 @@ export default function CompetitionsPanel({ initialMode = 'list', focusMode = nu
     </Card>
   );
 }
+

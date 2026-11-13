@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { competitionApi, errMsg } from '../../services/api';
+import { competitionApi, errMsg, resolveFileUrl } from '../../services/api';
 import { Trophy, Calendar, Users, FileText, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 const COMP_STATUS = {
@@ -72,6 +72,16 @@ export default function CompetitionsOversightPanel() {
       <div className="space-y-4">
         {competitions.map((c) => (
           <Card key={c._id} className="p-5 space-y-4">
+            {c.bannerUrl && (
+              <div className="w-full h-32 rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--surface-sunken)]">
+                <img
+                  src={resolveFileUrl(c.bannerUrl)}
+                  alt={c.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              </div>
+            )}
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-1 flex-1 min-w-[240px]">
                 <div className="flex flex-wrap items-center gap-2">
@@ -134,3 +144,4 @@ export default function CompetitionsOversightPanel() {
     </div>
   );
 }
+

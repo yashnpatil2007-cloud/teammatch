@@ -2,6 +2,7 @@ const { db, save, uid, now } = require('../data/store');
 const { asyncHandler } = require('../utils/generateToken');
 const { createNotification } = require('../utils/notify');
 const { recordAudit } = require('../utils/audit');
+const storageService = require('../services/storageService');
 
 const isAssignedOrganizer = (comp, user) => {
   if (!comp || !user) return false;
@@ -472,6 +473,9 @@ const deleteCompetition = asyncHandler(async (req, res) => {
     });
   }
 
+  if (comp.bannerUrl) {
+    storageService.deleteFile(comp.bannerUrl, 'banners').catch(() => {});
+  }
   db.competitions.splice(idx, 1);
   save();
   recordAudit({
@@ -485,6 +489,60 @@ const deleteCompetition = asyncHandler(async (req, res) => {
   res.json({ message: 'Competition removed' });
 });
 
+/**
+ * POST /api/competitions/upload-banner
+ * Authenticated organizer/admin uploads a competition banner image (JPG, PNG, WEBP <= 5MB)
+ */
+const uploadCompetitionBanner = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No image file uploaded' });
+  }
+
+  try {
+    storageService.validateImageFile(req.file);
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
+  }
+
+  const processed = await storageService.processUpload(req.file, 'banners');
+
+  res.status(200).json({
+    message: 'Banner uploaded successfully',
+    bannerUrl: processed.url,
+    file: {
+      name: processed.name,
+      url: processed.url,
+      size: processed.size,
+      provider: processed.provider,
+    },
+  });
+});
+
+/**
+ * DELETE /api/competitions/:id/banner
+ * Removes the banner image from an existing competition
+ */
+const deleteCompetitionBanner = asyncHandler(async (req, res) => {
+  const comp = (db.competitions || []).find((c) => c._id === req.params.id);
+  if (!comp) return res.status(404).json({ message: 'Competition not found' });
+
+  if (!isAssignedOrganizer(comp, req.user)) {
+    return res.status(403).json({ message: 'Access denied: only assigned organizers or admins can modify this competition banner' });
+  }
+
+  if (comp.bannerUrl) {
+    await storageService.deleteFile(comp.bannerUrl, 'banners');
+    comp.bannerUrl = '';
+    comp.updatedAt = now();
+    save();
+  }
+
+  res.json({
+    message: 'Competition banner removed successfully',
+    competition: enrichCompetition(comp),
+  });
+});
+
 module.exports = {
   isAssignedOrganizer,
   listCompetitions,
@@ -496,4 +554,6 @@ module.exports = {
   publishResults,
   getCompetitionTeams,
   deleteCompetition,
+  uploadCompetitionBanner,
+  deleteCompetitionBanner,
 };

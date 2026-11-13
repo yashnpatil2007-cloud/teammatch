@@ -4,7 +4,8 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Modal, Field, inputCls } from '../../components/ui/Modal';
 import { Avatar } from '../../components/ui/Avatar';
-import { problemApi, teamApi, submissionApi, errMsg } from '../../services/api';
+import ImageUpload from '../../components/ui/ImageUpload';
+import { problemApi, teamApi, submissionApi, errMsg, resolveFileUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import {
   UsersRound, Plus, BarChart3, RefreshCw, Check, X, Settings, Trash2,
@@ -32,6 +33,7 @@ const leaderTabFromPath = (path) => {
 function TeamManageModal({ open, team, problems, onClose, onSaved }) {
   const [name, setName] = useState('');
   const [problemId, setProblemId] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
   const [memberRoles, setMemberRoles] = useState({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -40,6 +42,7 @@ function TeamManageModal({ open, team, problems, onClose, onSaved }) {
     if (!open || !team) return;
     setName(team.name || '');
     setProblemId(team.problem?._id || team.problem || '');
+    setLogoUrl(team.logoUrl || team.avatar || '');
     const rolesMap = {};
     if (Array.isArray(team.memberRoles)) {
       team.memberRoles.forEach((mr) => {
@@ -59,7 +62,7 @@ function TeamManageModal({ open, team, problems, onClose, onSaved }) {
     setBusy(true);
     setErr('');
     try {
-      await teamApi.update(team._id, { name, problemId });
+      await teamApi.update(team._id, { name, problemId, logoUrl });
       const memberRolesPayload = Object.entries(memberRoles)
         .filter(([, teamRole]) => !!teamRole)
         .map(([userId, teamRole]) => ({ userId, teamRole }));
@@ -109,6 +112,26 @@ function TeamManageModal({ open, team, problems, onClose, onSaved }) {
               ))}
             </select>
           </Field>
+        </div>
+
+        <div className="p-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/40">
+          <ImageUpload
+            label="Team Logo / Avatar"
+            hint="Upload a custom logo or badge for your team (JPG, PNG, WEBP, max 5 MB)."
+            aspectRatio="avatar"
+            value={logoUrl}
+            onChange={(url) => setLogoUrl(url)}
+            onUpload={async (file, onProgress) => {
+              const fd = new FormData();
+              fd.append('logo', file);
+              const res = await teamApi.uploadLogo(team._id, fd, onProgress);
+              return res.logoUrl || res.avatar;
+            }}
+            onRemove={async () => {
+              await teamApi.deleteLogo(team._id);
+              setLogoUrl('');
+            }}
+          />
         </div>
 
         <div>
@@ -480,9 +503,23 @@ export default function LeaderDashboard() {
                   teams.map((t) => (
                     <div key={t._id} className="p-4 rounded-2xl border border-[var(--border)] space-y-3">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="font-semibold text-[14px] truncate">{t.name}</div>
-                          <div className="text-[11px] text-[var(--text-secondary)] truncate">{t.problem?.title} • {t.members?.length || 0}/{t.maxSize || 5} members</div>
+                        <div className="flex items-center gap-3 min-w-0">
+                          {(t.logoUrl || t.avatar) ? (
+                            <img
+                              src={resolveFileUrl(t.logoUrl || t.avatar)}
+                              alt={t.name}
+                              className="w-10 h-10 rounded-xl object-cover border border-[var(--border)] shrink-0"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-[#6C63FF]/10 text-[#6C63FF] font-bold flex items-center justify-center shrink-0 text-[13px]">
+                              {(t.name || 'T').slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-semibold text-[14px] truncate">{t.name}</div>
+                            <div className="text-[11px] text-[var(--text-secondary)] truncate">{t.problem?.title} • {t.members?.length || 0}/{t.maxSize || 5} members</div>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <Link to={`/dashboard/teams/${t._id}/workspace`} className="px-3 py-1.5 rounded-full bg-[#6C63FF]/10 text-[#6C63FF] hover:bg-[#6C63FF]/20 text-[11px] font-bold flex items-center gap-1">

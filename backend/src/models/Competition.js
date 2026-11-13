@@ -53,3 +53,4 @@ const competitionSchema = new mongoose.Schema(
 competitionSchema.index({ status: 1, organizer: 1 });
 
 module.exports = mongoose.models.Competition || mongoose.model('Competition', competitionSchema);
+

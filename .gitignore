@@ -44,4 +44,10 @@ backend/uploads/submissions/*
 !backend/uploads/submissions/.gitkeep
 backend/uploads/avatars/*
 !backend/uploads/avatars/.gitkeep
+backend/uploads/banners/*
+!backend/uploads/banners/.gitkeep
+backend/uploads/problems/*
+!backend/uploads/problems/.gitkeep
+backend/uploads/teams/*
+!backend/uploads/teams/.gitkeep
 scratch/

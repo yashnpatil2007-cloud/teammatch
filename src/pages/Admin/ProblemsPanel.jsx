@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import ProblemFormModal from '../../components/forms/ProblemFormModal';
-import { problemApi, errMsg } from '../../services/api';
+import { problemApi, errMsg, resolveFileUrl } from '../../services/api';
 import { FileText, Plus, Pencil, Trash2 } from 'lucide-react';
 
 export default function ProblemsPanel({ problems, reload }) {
@@ -46,8 +46,20 @@ export default function ProblemsPanel({ problems, reload }) {
             {problems.map((p) => (
               <tr key={p._id} className="border-t border-[var(--border)]">
                 <td className="py-3 font-medium max-w-[320px]">
-                  <div className="truncate">{p.title}</div>
-                  <div className="text-[11px] text-[var(--text-secondary)] truncate">{p.description}</div>
+                  <div className="flex items-center gap-2">
+                    {p.imageUrl && (
+                      <img
+                        src={resolveFileUrl(p.imageUrl)}
+                        alt=""
+                        className="w-7 h-7 rounded-md object-cover border border-[var(--border)] shrink-0"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate">{p.title}</div>
+                      <div className="text-[11px] text-[var(--text-secondary)] truncate">{p.description}</div>
+                    </div>
+                  </div>
                 </td>
                 <td className="text-center"><span className="px-2 py-1 rounded-full bg-[var(--surface)] text-[11px] font-semibold">{p.category}</span></td>
                 <td className="text-center">{p.difficulty || '—'}</td>

@@ -90,10 +90,7 @@ app.get('/api/health', (req, res) => {
     environment: process.env.NODE_ENV || 'development',
     datastore: mode,
     mongoConnected: require('mongoose').connection.readyState === 1,
-    storage: {
-      provider: storageProv.getProviderName(),
-      persistent: storageProv.isPersistent(),
-    },
+    storage: storageProv.getStorageStatus(),
     ...(mode === 'file' && isProd
       ? { productionWarning: 'Running in file fallback mode in production. MongoDB Atlas required for persistent container restarts.' }
       : {}),
@@ -107,6 +104,9 @@ app.get('/', (req, res) => res.json({ message: 'TeamMatch API — AI Powered Tea
 app.use((req, res) => res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` }));
 
 app.use((err, req, res, _next) => {
+  if (err.name === 'MulterError') {
+    return res.status(400).json({ message: `Upload error: ${err.message}` });
+  }
   console.error(err.stack);
   res.status(err.status || 500).json({ message: err.message || 'Server Error' });
 });

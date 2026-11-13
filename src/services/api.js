@@ -57,6 +57,11 @@ export const problemApi = {
   update: (id, payload) => API.put(`/problems/${id}`, payload).then((r) => r.data),
   remove: (id) => API.delete(`/problems/${id}`).then((r) => r.data),
   analyze: (title, description) => API.post('/problems/analyze', { title, description }).then((r) => r.data),
+  uploadImage: (formData, onProgress) =>
+    API.post('/problems/upload-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress,
+    }).then((r) => r.data),
 };
 
 export const competitionApi = {
@@ -69,6 +74,12 @@ export const competitionApi = {
   publishResults: (id, payload) => API.post(`/competitions/${id}/results`, payload).then((r) => r.data),
   teams: (id) => API.get(`/competitions/${id}/teams`).then((r) => r.data),
   remove: (id, force = false) => API.delete(`/competitions/${id}${force ? '?force=true' : ''}`).then((r) => r.data),
+  uploadBanner: (formData, onProgress) =>
+    API.post('/competitions/upload-banner', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress,
+    }).then((r) => r.data),
+  deleteBanner: (id) => API.delete(`/competitions/${id}/banner`).then((r) => r.data),
 };
 
 export const teamApi = {
@@ -81,6 +92,14 @@ export const teamApi = {
   moderate: (id, payload) => API.put(`/teams/admin/${id}/moderate`, payload).then((r) => r.data),
   remove: (id) => API.delete(`/teams/${id}`).then((r) => r.data),
   removeMember: (id, userId) => API.post(`/teams/${id}/remove-member`, { userId }).then((r) => r.data),
+  uploadLogo: (teamId, formData, onProgress) => {
+    const url = teamId ? `/teams/${teamId}/logo` : '/teams/upload-logo';
+    return API.post(url, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress,
+    }).then((r) => r.data);
+  },
+  deleteLogo: (teamId) => API.delete(`/teams/${teamId}/logo`).then((r) => r.data),
   match: (paramsOrProblemId) => {
     const params =
       typeof paramsOrProblemId === 'object' && paramsOrProblemId !== null

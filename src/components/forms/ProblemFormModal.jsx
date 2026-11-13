@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Modal, Field, inputCls } from '../ui/Modal';
 import { Button } from '../ui/Button';
+import ImageUpload from '../ui/ImageUpload';
 import { problemApi, competitionApi, errMsg } from '../../services/api';
 import { Sparkles } from 'lucide-react';
 
 const CATEGORIES = ['AI/ML', 'Web3', 'HealthTech', 'FinTech', 'EdTech', 'IoT', 'Open'];
-const EMPTY = { title: '', description: '', category: 'AI/ML', prize: '₹2L', deadline: '', teamMin: 2, teamMax: 4, competitionId: '', status: 'published', evaluationCriteria: '', submissionGuidelines: '' };
+const EMPTY = { title: '', description: '', category: 'AI/ML', prize: '₹2L', deadline: '', teamMin: 2, teamMax: 4, competitionId: '', status: 'published', evaluationCriteria: '', submissionGuidelines: '', imageUrl: '' };
 
 export default function ProblemFormModal({ open, onClose, initial, onSaved, competitions: propCompetitions }) {
   const [form, setForm] = useState(EMPTY);
@@ -37,6 +38,7 @@ export default function ProblemFormModal({ open, onClose, initial, onSaved, comp
         status: initial.status || 'published',
         evaluationCriteria: Array.isArray(initial.evaluationCriteria) ? initial.evaluationCriteria.join('\n') : (initial.evaluationCriteria || ''),
         submissionGuidelines: initial.submissionGuidelines || '',
+        imageUrl: initial.imageUrl || '',
       });
     } else {
       setForm(EMPTY);
@@ -79,6 +81,7 @@ export default function ProblemFormModal({ open, onClose, initial, onSaved, comp
           ? form.evaluationCriteria.split('\n').map((s) => s.trim()).filter(Boolean)
           : [],
         submissionGuidelines: form.submissionGuidelines || '',
+        imageUrl: form.imageUrl || '',
         teamSize: { min: Number(form.teamMin), max: Number(form.teamMax) },
       };
       const data = initial ? await problemApi.update(initial._id, payload) : await problemApi.create(payload);
@@ -136,6 +139,21 @@ export default function ProblemFormModal({ open, onClose, initial, onSaved, comp
             <textarea value={form.submissionGuidelines} onChange={set('submissionGuidelines')} rows={2} placeholder="Include GitHub repo, live demo, and pitch deck." className={inputCls} />
           </Field>
         </div>
+
+        <ImageUpload
+          label="Problem Illustration / Diagram (Optional)"
+          hint="Upload an architecture diagram or graphic from your device (JPG, PNG, WEBP, max 5 MB)."
+          aspectRatio="standard"
+          value={form.imageUrl}
+          onChange={(url) => setForm((f) => ({ ...f, imageUrl: url }))}
+          onUpload={async (file, onProgress) => {
+            const fd = new FormData();
+            fd.append('image', file);
+            const res = await problemApi.uploadImage(fd, onProgress);
+            return res.imageUrl;
+          }}
+          onRemove={() => setForm((f) => ({ ...f, imageUrl: '' }))}
+        />
         <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
           <Field label="Team min">
             <input type="number" min="1" value={form.teamMin} onChange={set('teamMin')} className={inputCls} />

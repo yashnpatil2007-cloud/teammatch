@@ -548,6 +548,12 @@ const uploadProfilePhoto = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Please select an image file (JPG, PNG, or WEBP, max 5 MB)' });
   }
 
+  try {
+    storageService.validateImageFile(req.file);
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
+  }
+
   // If previous avatar was stored locally in AVATARS_DIR, clean it up
   if (user.avatar && user.avatar.includes('/uploads/avatars/')) {
     const oldFileName = path.basename(user.avatar);

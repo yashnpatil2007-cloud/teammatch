@@ -2,6 +2,7 @@ const { db, save, uid, now } = require('../data/store');
 const { asyncHandler } = require('../utils/generateToken');
 const { analyzeProblem } = require('../services/aiAnalyzer');
 const { isAssignedOrganizer } = require('./competitionController');
+const { storageService } = require('../services/storageService');
 
 const populateOrganizer = (p) => {
   if (!p) return p;
@@ -69,6 +70,7 @@ const create = asyncHandler(async (req, res) => {
     teamSize,
     deadline,
     competitionId,
+    imageUrl,
     evaluationCriteria = '',
     submissionGuidelines = '',
     status = 'published',
@@ -102,6 +104,7 @@ const create = asyncHandler(async (req, res) => {
     requiredSkills: ai.requiredSkills,
     requiredRoles: ai.requiredRoles,
     teamSize: teamSize || ai.teamRequirement,
+    imageUrl: imageUrl ? String(imageUrl).trim() : '',
     prize: prize || '₹1L',
     deadline: deadline || null,
     competitionId: targetCompId,
@@ -134,6 +137,7 @@ const update = asyncHandler(async (req, res) => {
     'status',
     'difficulty',
     'competitionId',
+    'imageUrl',
     'evaluationCriteria',
     'submissionGuidelines',
   ];
@@ -164,4 +168,27 @@ const analyze = asyncHandler(async (req, res) => {
   res.json(analyzeProblem(title, description));
 });
 
-module.exports = { getAll, getOne, create, update, remove, analyze };
+/**
+ * POST /api/problems/upload-image
+ * Organizer / Admin uploads an illustration/diagram for a problem statement
+ */
+const uploadProblemImage = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No image file uploaded' });
+  }
+
+  try {
+    storageService.validateImageFile(req.file);
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
+  }
+
+  const processed = await storageService.processUpload(req.file, 'problems');
+  res.status(200).json({
+    message: 'Problem image uploaded successfully',
+    imageUrl: processed.url,
+    file: processed,
+  });
+});
+
+module.exports = { getAll, getOne, create, update, remove, analyze, uploadProblemImage };

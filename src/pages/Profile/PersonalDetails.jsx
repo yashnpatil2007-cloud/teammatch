@@ -3,6 +3,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Field, inputCls } from '../../components/ui/Modal';
 import { Avatar } from '../../components/ui/Avatar';
+import ImageUpload from '../../components/ui/ImageUpload';
 import { useAuth } from '../../context/AuthContext';
 import { userApi, errMsg } from '../../services/api';
 import { Save, X, Camera, Trash2, RefreshCw, CheckCircle2 } from 'lucide-react';
@@ -221,90 +222,35 @@ export default function PersonalDetails() {
         <form onSubmit={save} className="space-y-6">
           {/* Enhanced Profile Photo Section */}
           <div className="p-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/50 space-y-3">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-              {/* Photo Preview with Avatar fallback */}
-              <div className="relative group shrink-0">
-                <Avatar
-                  user={{
-                    ...user,
-                    profilePicture: activePhoto,
-                    avatar: activePhoto,
-                    name: form.name,
-                  }}
-                  size="2xl"
-                  className="shadow-sm"
-                />
-                {photoUploading && (
-                  <div className="absolute inset-0 rounded-full bg-black/50 backdrop-blur-xs flex items-center justify-center text-white">
-                    <RefreshCw className="w-6 h-6 animate-spin" />
-                  </div>
-                )}
-              </div>
-
-              {/* Upload & Action Controls */}
-              <div className="flex-1 text-center sm:text-left space-y-2">
-                <div>
-                  <h3 className="font-bold text-[14px]">Profile Photo</h3>
-                  <p className="text-[12px] text-[var(--text-secondary)] mt-0.5">
-                    Upload a high-quality photo to represent yourself in teammate discovery, workspaces, and team submissions.
-                  </p>
-                </div>
-
-                {/* Progress bar during upload */}
-                {photoUploading && (
-                  <div className="w-full max-w-xs space-y-1 py-1">
-                    <div className="flex justify-between text-[11px] font-semibold text-[var(--text-secondary)]">
-                      <span>Uploading photo...</span>
-                      <span>{photoProgress}%</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-[var(--border)] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-[#6C63FF] to-[#60A5FA] rounded-full transition-all duration-300"
-                        style={{ width: `${photoProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Buttons */}
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handlePhotoSelect}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="gradient"
-                    disabled={photoUploading}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-[12px] py-2 px-4 flex items-center gap-1.5"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                    {hasPhoto ? 'Change Photo' : 'Upload Photo'}
-                  </Button>
-
-                  {hasPhoto && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      disabled={photoUploading}
-                      onClick={handleRemovePhoto}
-                      className="text-[12px] py-2 px-3 text-red-600 hover:bg-red-500/10 flex items-center gap-1.5"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Remove
-                    </Button>
-                  )}
-                </div>
-
-                <div className="text-[11px] text-[var(--text-secondary)] pt-0.5">
-                  Supported formats: <strong>JPG, JPEG, PNG, WEBP</strong> • Maximum size: <strong>5 MB</strong>
-                </div>
-              </div>
-            </div>
+            <ImageUpload
+              label="Profile Photo"
+              hint="Upload a photo from your device (JPG, PNG, or WEBP, max 5 MB) with drag & drop support."
+              aspectRatio="avatar"
+              value={form.profilePicture || form.avatar}
+              onChange={(url) => {
+                setForm((prev) => ({
+                  ...prev,
+                  profilePicture: url,
+                  avatar: url,
+                }));
+              }}
+              onUpload={async (file, onProgress) => {
+                const fd = new FormData();
+                fd.append('photo', file);
+                const res = await userApi.uploadProfilePhoto(fd, onProgress);
+                await refresh();
+                return res.photoUrl;
+              }}
+              onRemove={async () => {
+                await userApi.deleteProfilePhoto();
+                await refresh();
+                setForm((prev) => ({
+                  ...prev,
+                  profilePicture: '',
+                  avatar: '',
+                }));
+              }}
+            />
           </div>
 
           <div className="grid sm:grid-cols-2 gap-3">

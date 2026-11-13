@@ -17,3 +17,4 @@ const platformSettingSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.models.PlatformSetting || mongoose.model('PlatformSetting', platformSettingSchema);
+

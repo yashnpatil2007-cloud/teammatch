@@ -332,3 +332,4 @@ export default function OrganizersPanel({ reload }) {
     </div>
   );
 }
+

@@ -12,6 +12,7 @@ const problemSchema = new mongoose.Schema(
     _id: { type: String, default: () => 'p-' + crypto.randomBytes(6).toString('hex') },
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true },
+    imageUrl: { type: String, default: '' },
     category: {
       type: String,
       enum: ['AI/ML', 'Web3', 'HealthTech', 'FinTech', 'EdTech', 'IoT', 'Open'],

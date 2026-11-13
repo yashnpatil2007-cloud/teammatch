@@ -6,6 +6,7 @@ import { Modal, Field, inputCls } from '../../components/ui/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { userApi, teamApi, errMsg, resolveFileUrl } from '../../services/api';
 import { Avatar } from '../../components/ui/Avatar';
+import ImageUpload from '../../components/ui/ImageUpload';
 import {
   Award,
   Star,
@@ -1290,26 +1291,37 @@ export default function MemberDashboard() {
               />
             </Field>
           </div>
-          <Field
-            label="Profile Photo"
-            hint="Upload or change your official photo directly in Personal Details."
-          >
-            <div className="flex items-center justify-between p-3 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-              <div className="flex items-center gap-3">
-                <Avatar user={{ ...user, profilePicture: pForm.profilePicture || pForm.avatar }} size="sm" />
-                <span className="text-[12px] font-medium text-[var(--text-secondary)]">
-                  {pForm.profilePicture ? 'Custom photo active' : 'No photo uploaded (using default avatar)'}
-                </span>
-              </div>
-              <Link
-                to="/dashboard/profile"
-                className="text-[12px] font-semibold text-[#6C63FF] hover:underline"
-                onClick={() => setEditOpen(false)}
-              >
-                Upload / Change Photo →
-              </Link>
-            </div>
-          </Field>
+          <div className="py-1">
+            <ImageUpload
+              label="Profile Photo"
+              hint="Upload a photo from your device (JPG, PNG, or WEBP, max 5 MB)."
+              aspectRatio="avatar"
+              value={pForm.profilePicture || pForm.avatar}
+              onChange={(url) => {
+                setPForm((prev) => ({
+                  ...prev,
+                  profilePicture: url,
+                  avatar: url,
+                }));
+              }}
+              onUpload={async (file, onProgress) => {
+                const fd = new FormData();
+                fd.append('photo', file);
+                const res = await userApi.uploadProfilePhoto(fd, onProgress);
+                await refresh();
+                return res.photoUrl;
+              }}
+              onRemove={async () => {
+                await userApi.deleteProfilePhoto();
+                await refresh();
+                setPForm((prev) => ({
+                  ...prev,
+                  profilePicture: '',
+                  avatar: '',
+                }));
+              }}
+            />
+          </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <Field label="College/University">
               <input

@@ -264,6 +264,15 @@
 - **Four-Role Architecture & Complete Website Correction:**
   - Strict separation enforced across **Admin**, **Organizer**, **Team Leader**, and **Team Member** roles on both frontend routes/sidebars and backend APIs.
   - Added `Competition` & `PlatformSetting` schemas (`backend/src/models/Competition.js`, `PlatformSetting.js`), competition-scoped Organizer authorization (`backend/src/controllers/competitionController.js`, `/api/competitions`), privilege escalation prevention on `/api/auth/register`, Admin Organizer/Team-Monitoring/Competition-Oversight/Settings panels (`src/pages/Admin/`), Organizer Competition/Judging/Results panels (`src/pages/Organizer/`), Team Leader functional role assignment & request workflows (`src/pages/Leader/Dashboard.jsx`), and Team Member invitations/requests/assigned-tasks views (`src/pages/Member/Dashboard.jsx`).
+- **Complete Image Upload System (Remove Image URL Inputs):**
+  - Completely replaced all user-facing image URL text inputs across the website with direct device file pickers and drag-and-drop uploads.
+  - Created reusable `ImageUpload` component (`src/components/ui/ImageUpload.jsx`) with real-time preview, change/replace, remove, upload progress bar, and multi-aspect ratio presets (`banner`, `avatar`, `standard`).
+  - Strict 5 MB file size limit and file type validation (JPG, JPEG, PNG, WEBP) enforced on both client and server.
+  - Backend binary magic-bytes verification implemented in `storageService.validateImageFile` (detects real JPEG, PNG, and WEBP buffers; rejects corrupted/spoofed extensions immediately).
+  - Implemented upload & deletion endpoints: `POST /api/competitions/upload-banner`, `DELETE /api/competitions/:id/banner`, `POST /api/teams/:id/logo`, `POST /api/teams/upload-logo`, `DELETE /api/teams/:id/logo`, `POST /api/problems/upload-image`, and integrated into `POST /api/users/profile-photo`.
+  - Added Multer error interceptor in `backend/src/server.js` returning clean 400 Bad Request on oversized files.
+  - Transparent storage reporting in `/api/health` with S3/Cloudinary/local persistence status.
+  - Preserved all external links (GitHub URLs, live demo links, presentation URLs) and full backward-compatibility with existing database image URLs.
 
 ---
 
@@ -279,8 +288,11 @@
 | **Phase 5 Step 3 & 4 Submission & Notification Suite** | 61 | 61 | 0 | **100% PASS** |
 | **Phase 5 Step 5 Real Admin Analytics Suite** | 42 | 42 | 0 | **100% PASS** |
 | **Live Production E2E Verification Suite** | 48 | 48 | 0 | **100% PASS** |
-| **Total Test Assertions** | **342** | **342** | **0** | **100% PASS** |
-| **Frontend Production Build (`vite build`)** | Clean | Clean | 0 | **PASS (1030ms)** |
+| **Image Upload System E2E Suite** | 17 | 17 | 0 | **100% PASS** |
+| **Four-Role Architecture Suite** | 48 | 48 | 0 | **100% PASS** |
+| **RBAC Audit Suite** | 56 | 56 | 0 | **100% PASS** |
+| **Total Test Assertions** | **463** | **463** | **0** | **100% PASS** |
+| **Frontend Production Build (`vite build`)** | Clean | Clean | 0 | **PASS (1.59s)** |
 | **Backend Startup & Health Check** | Clean | Clean | 0 | **PASS (200 OK)** |
 
 ---

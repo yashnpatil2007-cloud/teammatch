@@ -3,6 +3,7 @@ const { asyncHandler } = require('../utils/generateToken');
 const { createNotification } = require('../utils/notify');
 const { recordAudit } = require('../utils/audit');
 const { isAssignedOrganizer } = require('./competitionController');
+const { storageService } = require('../services/storageService');
 const {
   teamCoverage,
   calculateMatch,
@@ -167,6 +168,8 @@ const createTeam = asyncHandler(async (req, res) => {
   const team = {
     _id: teamId,
     name: String(name).trim(),
+    avatar: req.body.avatar || req.body.logoUrl || '',
+    logoUrl: req.body.logoUrl || req.body.avatar || '',
     problem: problem._id,
     competitionId: resolvedCompId,
     leader: req.user._id,
@@ -603,8 +606,16 @@ const updateTeam = asyncHandler(async (req, res) => {
   const team = db.teams.find((t) => t._id === req.params.teamId);
   if (!team) return res.status(404).json({ message: 'Team not found' });
   if (!canManage(team, req.user)) return res.status(403).json({ message: 'Only the team leader can edit this team' });
-  const { name, status, problemId } = req.body;
+  const { name, status, problemId, avatar, logoUrl } = req.body;
   if (name !== undefined && String(name).trim()) team.name = String(name).trim();
+  if (avatar !== undefined) {
+    team.avatar = String(avatar).trim();
+    team.logoUrl = String(avatar).trim();
+  }
+  if (logoUrl !== undefined) {
+    team.logoUrl = String(logoUrl).trim();
+    team.avatar = String(logoUrl).trim();
+  }
   if (status !== undefined && ['forming', 'complete', 'submitted'].includes(status)) team.status = status;
   if (problemId !== undefined && findProblem(problemId)) {
     const p = findProblem(problemId);
@@ -721,6 +732,91 @@ const removeMember = asyncHandler(async (req, res) => {
   res.json({ message: 'Member removed', team: populateTeam(team) });
 });
 
+/**
+ * POST /api/teams/:teamId/logo
+ * Leader uploads a logo for an existing team (JPG, PNG, WEBP <= 5MB)
+ */
+const uploadTeamLogoHandler = asyncHandler(async (req, res) => {
+  const team = db.teams.find((t) => t._id === req.params.teamId);
+  if (!team) return res.status(404).json({ message: 'Team not found' });
+  if (!canManage(team, req.user)) {
+    return res.status(403).json({ message: 'Only the team leader can upload a team logo' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ message: 'No image file uploaded' });
+  }
+
+  try {
+    storageService.validateImageFile(req.file);
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
+  }
+
+  if (team.avatar) {
+    await storageService.deleteFile(team.avatar, 'teams');
+  }
+
+  const processed = await storageService.processUpload(req.file, 'teams');
+  team.avatar = processed.url;
+  team.logoUrl = processed.url;
+  team.updatedAt = now();
+  save();
+
+  res.status(200).json({
+    message: 'Team logo uploaded successfully',
+    logoUrl: processed.url,
+    team: populateTeam(team),
+  });
+});
+
+/**
+ * POST /api/teams/upload-logo
+ * Leader uploads a team logo during new team creation
+ */
+const uploadStandaloneTeamLogo = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No image file uploaded' });
+  }
+
+  try {
+    storageService.validateImageFile(req.file);
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
+  }
+
+  const processed = await storageService.processUpload(req.file, 'teams');
+  res.status(200).json({
+    message: 'Team logo uploaded successfully',
+    logoUrl: processed.url,
+    file: processed,
+  });
+});
+
+/**
+ * DELETE /api/teams/:teamId/logo
+ * Leader removes the team logo
+ */
+const deleteTeamLogoHandler = asyncHandler(async (req, res) => {
+  const team = db.teams.find((t) => t._id === req.params.teamId);
+  if (!team) return res.status(404).json({ message: 'Team not found' });
+  if (!canManage(team, req.user)) {
+    return res.status(403).json({ message: 'Only the team leader can modify team logo' });
+  }
+
+  if (team.avatar || team.logoUrl) {
+    await storageService.deleteFile(team.avatar || team.logoUrl, 'teams');
+    team.avatar = '';
+    team.logoUrl = '';
+    team.updatedAt = now();
+    save();
+  }
+
+  res.status(200).json({
+    message: 'Team logo removed successfully',
+    team: populateTeam(team),
+  });
+});
+
 module.exports = {
   getTeams,
   getMine,
@@ -736,5 +832,8 @@ module.exports = {
   invite,
   requestJoin,
   respondInvite,
+  uploadTeamLogoHandler,
+  uploadStandaloneTeamLogo,
+  deleteTeamLogoHandler,
   populateTeam,
 };

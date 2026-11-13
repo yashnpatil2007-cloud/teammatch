@@ -8,8 +8,20 @@ const CERTIFICATES_DIR = path.join(UPLOADS_DIR, 'certificates');
 const RESUMES_DIR = path.join(UPLOADS_DIR, 'resumes');
 const SUBMISSIONS_DIR = path.join(UPLOADS_DIR, 'submissions');
 const AVATARS_DIR = path.join(UPLOADS_DIR, 'avatars');
+const BANNERS_DIR = path.join(UPLOADS_DIR, 'banners');
+const TEAMS_DIR = path.join(UPLOADS_DIR, 'teams');
+const PROBLEMS_DIR = path.join(UPLOADS_DIR, 'problems');
 
-[UPLOADS_DIR, CERTIFICATES_DIR, RESUMES_DIR, SUBMISSIONS_DIR, AVATARS_DIR].forEach((dir) => {
+[
+  UPLOADS_DIR,
+  CERTIFICATES_DIR,
+  RESUMES_DIR,
+  SUBMISSIONS_DIR,
+  AVATARS_DIR,
+  BANNERS_DIR,
+  TEAMS_DIR,
+  PROBLEMS_DIR,
+].forEach((dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -116,7 +128,20 @@ const uploadSubmission = multer({
   fileFilter: submissionFilter,
 });
 
-// Storage for Profile Photos / Avatars (JPG, JPEG, PNG, WEBP $\le$ 5MB)
+// Common Image Filter (JPG, JPEG, PNG, WEBP, max 5MB)
+const imageFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const ext = path.extname(file.originalname).toLowerCase();
+  const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+
+  if (allowedTypes.includes(file.mimetype) && allowedExts.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid image type. Only JPG, JPEG, PNG and WEBP formats are allowed (maximum 5 MB).'), false);
+  }
+};
+
+// Storage for Profile Photos / Avatars (JPG, JPEG, PNG, WEBP <= 5MB)
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, AVATARS_DIR);
@@ -129,19 +154,65 @@ const avatarStorage = multer.diskStorage({
   },
 });
 
-const avatarFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid image type. Only JPG, JPEG, PNG and WEBP formats are allowed (maximum 5 MB).'), false);
-  }
-};
-
 const uploadAvatar = multer({
   storage: avatarStorage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: avatarFilter,
+  fileFilter: imageFilter,
+});
+
+// Storage for Competition Banners (JPG, JPEG, PNG, WEBP <= 5MB)
+const bannerStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, BANNERS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const unique = crypto.randomBytes(6).toString('hex');
+    cb(null, `banner_${Date.now()}_${unique}${ext}`);
+  },
+});
+
+const uploadBanner = multer({
+  storage: bannerStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: imageFilter,
+});
+
+// Storage for Team Logos / Avatars (JPG, JPEG, PNG, WEBP <= 5MB)
+const teamLogoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, TEAMS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const unique = crypto.randomBytes(6).toString('hex');
+    const teamId = req.params?.teamId || 'team';
+    cb(null, `team_${teamId}_${Date.now()}_${unique}${ext}`);
+  },
+});
+
+const uploadTeamLogo = multer({
+  storage: teamLogoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: imageFilter,
+});
+
+// Storage for Problem Statement Images (JPG, JPEG, PNG, WEBP <= 5MB)
+const problemImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, PROBLEMS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const unique = crypto.randomBytes(6).toString('hex');
+    cb(null, `prob_${Date.now()}_${unique}${ext}`);
+  },
+});
+
+const uploadProblemImage = multer({
+  storage: problemImageStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: imageFilter,
 });
 
 module.exports = {
@@ -149,9 +220,15 @@ module.exports = {
   uploadResume,
   uploadSubmission,
   uploadAvatar,
+  uploadBanner,
+  uploadTeamLogo,
+  uploadProblemImage,
   UPLOADS_DIR,
   CERTIFICATES_DIR,
   RESUMES_DIR,
   SUBMISSIONS_DIR,
   AVATARS_DIR,
+  BANNERS_DIR,
+  TEAMS_DIR,
+  PROBLEMS_DIR,
 };

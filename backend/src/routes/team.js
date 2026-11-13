@@ -14,6 +14,9 @@ const {
   invite,
   requestJoin,
   respondInvite,
+  uploadTeamLogoHandler,
+  uploadStandaloneTeamLogo,
+  deleteTeamLogoHandler,
 } = require('../controllers/teamController');
 
 const {
@@ -29,16 +32,20 @@ const {
 } = require('../controllers/workspaceController');
 
 const { protect, authorize } = require('../middleware/auth');
+const { uploadTeamLogo } = require('../middleware/upload');
 const router = express.Router();
 
 router.get('/', protect, getTeams);
 router.get('/mine', protect, getMine);
 router.get('/match', protect, authorize('leader'), match);
 router.post('/', protect, authorize('leader'), createTeam);
+router.post('/upload-logo', protect, authorize('leader'), uploadTeamLogo.single('logo'), uploadStandaloneTeamLogo);
 router.put('/admin/:teamId/moderate', protect, authorize('admin'), adminModerateTeam);
 router.get('/:teamId', protect, getOne);
 router.get('/:teamId/analyze', protect, analyze);
 router.put('/:teamId', protect, authorize('leader'), updateTeam);
+router.post('/:teamId/logo', protect, authorize('leader'), uploadTeamLogo.single('logo'), uploadTeamLogoHandler);
+router.delete('/:teamId/logo', protect, authorize('leader'), deleteTeamLogoHandler);
 router.put('/:teamId/member-roles', protect, authorize('leader'), updateMemberRoles);
 router.delete('/:teamId', protect, authorize('leader', 'admin'), removeTeam);
 router.post('/:teamId/invite', protect, authorize('leader'), invite);
