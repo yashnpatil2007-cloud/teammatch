@@ -130,12 +130,12 @@ const getTeams = asyncHandler(async (req, res) => {
 });
 
 const getMine = asyncHandler(async (req, res) => {
-  const me = req.user._id;
+  const me = String(req.user._id);
   const list = db.teams.filter(
     (t) =>
-      (t.members || []).includes(me) ||
-      t.leader === me ||
-      (t.invites || []).some((i) => (i.user?._id || i.user) === me)
+      (t.members || []).some((m) => String(m._id || m) === me) ||
+      String(t.leader?._id || t.leader) === me ||
+      (t.invites || []).some((i) => String(i.user?._id || i.user) === me)
   );
   res.json(list.map(populateTeam));
 });

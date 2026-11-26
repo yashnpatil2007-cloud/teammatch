@@ -522,6 +522,14 @@ export default function LeaderDashboard() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setManageTeam(t)}
+                            className="px-3 py-1.5 rounded-full border border-[var(--border)] hover:bg-[var(--surface)] text-[11px] font-bold flex items-center gap-1.5 text-[var(--text-primary)] transition"
+                            title="View members and manage functional roles"
+                          >
+                            <UsersRound className="w-3.5 h-3.5 text-[#6C63FF]" /> Teammates ({(t.members || []).length})
+                          </button>
                           <Link to={`/dashboard/teams/${t._id}/workspace`} className="px-3 py-1.5 rounded-full bg-[#6C63FF]/10 text-[#6C63FF] hover:bg-[#6C63FF]/20 text-[11px] font-bold flex items-center gap-1">
                             Workspace →
                           </Link>
@@ -536,21 +544,47 @@ export default function LeaderDashboard() {
                         <span className="text-[var(--text-secondary)]">Match {t.matchPercentage || 0}%</span>
                         {t.missingSkills?.length ? <span className="text-amber-600">Missing: {t.missingSkills.join(', ')}</span> : <span className="text-emerald-600">All skills covered</span>}
                       </div>
-                      {((Array.isArray(t.memberRoles) && t.memberRoles.length > 0) || (t.memberRoles && !Array.isArray(t.memberRoles) && Object.keys(t.memberRoles).length > 0)) && (
-                        <div className="flex flex-wrap gap-1.5 pt-1 border-t border-[var(--border)]">
+
+                      {/* Teammates Squad Roster Strip */}
+                      <div className="pt-2 border-t border-[var(--border)] space-y-2">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
+                            <UsersRound className="w-3 h-3 text-[#6C63FF]" /> Squad Roster ({(t.members || []).length + (t.leader ? 1 : 0)} people):
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setManageTeam(t)}
+                            className="text-[#6C63FF] hover:underline font-bold text-[11px]"
+                          >
+                            Assign Roles & Manage →
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2 items-center">
+                          {t.leader && (
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#6C63FF]/10 border border-[#6C63FF]/20 text-[11px] font-semibold text-[#6C63FF]">
+                              <Avatar user={t.leader} size="xs" />
+                              <span>{t.leader.name || 'Leader'} <strong>(Leader)</strong></span>
+                            </div>
+                          )}
                           {(t.members || []).map((m) => {
                             const mid = String(m._id || m);
                             const roleEntry = Array.isArray(t.memberRoles)
                               ? t.memberRoles.find((mr) => String(mr.userId) === mid)?.teamRole
-                              : t.memberRoles[mid];
+                              : (t.memberRoles && t.memberRoles[mid]);
                             return (
-                              <span key={mid} className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface)] border border-[var(--border)]">
-                                {m.name || 'Member'}: <strong>{roleEntry || (mid === String(t.leader?._id || t.leader) ? 'Leader' : 'Member')}</strong>
-                              </span>
+                              <div key={mid} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--surface)] border border-[var(--border)] text-[11px]">
+                                <Avatar user={m} size="xs" />
+                                <span className="font-medium text-[var(--text-primary)]">{m.name || 'Member'}</span>
+                                {roleEntry && (
+                                  <span className="text-[10px] text-[#6C63FF] font-bold">
+                                    • {roleEntry}
+                                  </span>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
-                      )}
+                      </div>
                     </div>
                   ))
                 ) : (

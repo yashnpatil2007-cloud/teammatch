@@ -31,8 +31,24 @@ import {
   RefreshCw,
   X,
   FileCheck,
-  UserPlus
+  UserPlus,
+  Crown
 } from 'lucide-react';
+
+const TEAM_ROLE_OPTIONS = [
+  'Generalist',
+  'Frontend Developer',
+  'Backend Developer',
+  'Full Stack Developer',
+  'AI/ML Specialist',
+  'Data Engineer',
+  'UI/UX Designer',
+  'Mobile Developer',
+  'DevOps / Cloud',
+  'QA / Testing',
+  'Smart Contract Dev',
+  'Project Pitch / Lead',
+];
 
 export default function TeamWorkspace() {
   const { teamId } = useParams();
@@ -209,6 +225,32 @@ export default function TeamWorkspace() {
     }
   };
 
+  const handleAssignRole = async (memberId, role) => {
+    try {
+      const currentRoles = Array.isArray(team.memberRoles)
+        ? [...team.memberRoles]
+        : Object.entries(team.memberRoles || {}).map(([userId, teamRole]) => ({ userId, teamRole }));
+      const idx = currentRoles.findIndex((r) => String(r.userId) === String(memberId));
+      if (idx !== -1) {
+        currentRoles[idx].teamRole = role;
+      } else {
+        currentRoles.push({ userId: String(memberId), teamRole: role });
+      }
+      await teamApi.updateMemberRoles(team._id, { memberRoles: currentRoles });
+      setWorkspaceData((prev) => ({
+        ...prev,
+        team: {
+          ...prev.team,
+          memberRoles: currentRoles,
+        },
+      }));
+      setMsg('Teammate functional role updated successfully.');
+      setTimeout(() => setMsg(''), 3000);
+    } catch (e) {
+      setErr(errMsg(e));
+    }
+  };
+
   // Resource actions
   const handleAddResource = async (e) => {
     e.preventDefault();
@@ -377,12 +419,17 @@ export default function TeamWorkspace() {
               </div>
               <div className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Completed</div>
             </div>
-            <div className="flex -space-x-2 overflow-hidden items-center pl-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('members')}
+              className="flex -space-x-2 overflow-hidden items-center pl-2 hover:opacity-80 transition cursor-pointer"
+              title="Click to view full team members & roster"
+            >
               <Avatar user={team.leader} size="sm" className="ring-2 ring-[var(--card)]" />
               {(team.members || []).map((m) => (
                 <Avatar key={m._id} user={m} size="sm" className="ring-2 ring-[var(--card)]" />
               ))}
-            </div>
+            </button>
           </div>
         </div>
 
@@ -391,6 +438,7 @@ export default function TeamWorkspace() {
           {[
             { id: 'tasks', label: 'Kanban Tasks', count: tasks.length },
             { id: 'milestones', label: 'Milestones', count: team.milestones?.length || 0 },
+            { id: 'members', label: 'Team Members', count: (team.members?.length || 0) + (team.leader ? 1 : 0) },
             { id: 'submission', label: 'Project Submission', badge: submission?.status },
             { id: 'chat', label: 'Team Chat', count: chatMessages.length },
             { id: 'resources', label: 'Shared Links', count: team.resources?.length || 0 },
@@ -591,6 +639,168 @@ export default function TeamWorkspace() {
             )}
           </div>
         </Card>
+      )}
+
+      {/* TAB: TEAM MEMBERS & ROSTER */}
+      {activeTab === 'members' && (
+        <div className="space-y-6">
+          {/* Squad Metrics Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Card className="p-4 text-center">
+              <div className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Total Members</div>
+              <div className="text-[20px] font-black text-[var(--text-primary)] mt-1">
+                {(team.members || []).length + (team.leader ? 1 : 0)} / {team.problem?.teamSize || team.maxSize || 5}
+              </div>
+            </Card>
+            <Card className="p-4 text-center">
+              <div className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Skill Coverage</div>
+              <div className="text-[20px] font-black text-[#6C63FF] mt-1">{team.coverage || 85}%</div>
+            </Card>
+            <Card className="p-4 text-center">
+              <div className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Team Balance</div>
+              <div className="text-[20px] font-black text-emerald-600 mt-1">{team.balanceScore || 8}/10</div>
+            </Card>
+            <Card className="p-4 text-center">
+              <div className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Open Gaps</div>
+              <div className="text-[14px] font-bold text-amber-600 mt-2 truncate">
+                {team.missingSkills?.length ? team.missingSkills.join(', ') : 'None (Full Coverage)'}
+              </div>
+            </Card>
+          </div>
+
+          {/* Leader Card */}
+          <Card className="p-6">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-[#6C63FF] mb-3 flex items-center gap-1.5">
+              <Crown className="w-4 h-4 text-amber-500" /> Team Leader & Founder
+            </div>
+            {team.leader ? (
+              <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-[#6C63FF]/5 border border-[#6C63FF]/15">
+                <div className="flex items-center gap-3">
+                  <Avatar user={team.leader} size="lg" />
+                  <div>
+                    <div className="font-bold text-[16px] flex items-center gap-2">
+                      {team.leader.name || 'Team Leader'}
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#6C63FF] text-white uppercase">
+                        Squad Lead
+                      </span>
+                    </div>
+                    <div className="text-[12px] text-[var(--text-secondary)]">{team.leader.email}</div>
+                    {team.leader.personality?.archetype && (
+                      <div className="text-[11px] font-semibold text-purple-600 mt-0.5">
+                        Working-Style: <strong>{team.leader.personality.archetype}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {team.leader.skills?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 max-w-sm">
+                    {team.leader.skills.slice(0, 5).map((s, idx) => (
+                      <span key={idx} className="px-2.5 py-1 rounded-full bg-[var(--card)] border border-[var(--border)] text-[11px] font-medium">
+                        {s.name} {s.badge ? `(${s.badge})` : ''}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-[13px] text-[var(--text-secondary)]">Leader information not available.</div>
+            )}
+          </Card>
+
+          {/* Members Grid */}
+          <Card className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-[16px] flex items-center gap-2">
+                  <Users className="w-5 h-5 text-[#6C63FF]" /> Teammates & Assigned Functional Roles ({(team.members || []).length})
+                </h3>
+                <p className="text-[12px] text-[var(--text-secondary)]">
+                  {isLeader ? 'Assign functional responsibilities to members to divide project sprints.' : 'Roster of active engineers and designers in this workspace.'}
+                </p>
+              </div>
+              {isLeader && (
+                <Link to="/dashboard/matching" className="px-3 py-1.5 rounded-xl bg-[#6C63FF] hover:bg-[#5b52ef] text-white text-[12px] font-bold flex items-center gap-1.5 transition">
+                  <UserPlus className="w-3.5 h-3.5" /> Find More Teammates
+                </Link>
+              )}
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              {(team.members || []).map((m) => {
+                const mid = String(m._id || m);
+                const isLead = mid === String(team.leader?._id || team.leader);
+                const roleEntry = Array.isArray(team.memberRoles)
+                  ? team.memberRoles.find((mr) => String(mr.userId) === mid)?.teamRole
+                  : (team.memberRoles && team.memberRoles[mid]);
+                const assignedTasksCount = tasks.filter((tsk) => String(tsk.assignedTo) === mid).length;
+
+                return (
+                  <div key={mid} className="p-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] flex flex-col justify-between space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar user={m} size="md" />
+                        <div>
+                          <div className="font-bold text-[14px] flex items-center gap-1.5">
+                            {m.name || 'Member'}
+                            {isLead && <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#6C63FF] text-white">Lead</span>}
+                          </div>
+                          <div className="text-[12px] text-[var(--text-secondary)]">{m.email || 'Participant'}</div>
+                          {m.personality?.archetype && (
+                            <span className="mt-1 inline-block text-[10px] font-semibold text-purple-700 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-full">
+                              {m.personality.archetype}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
+                          {assignedTasksCount} task{assignedTasksCount === 1 ? '' : 's'} assigned
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Role Assignment */}
+                    <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-[var(--text-secondary)]">Functional Role:</span>
+                      {isLeader ? (
+                        <select
+                          value={roleEntry || (isLead ? 'Project Pitch / Lead' : 'Generalist')}
+                          onChange={(e) => handleAssignRole(mid, e.target.value)}
+                          className="px-2.5 py-1 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[11px] font-semibold text-[#6C63FF] outline-none"
+                        >
+                          {TEAM_ROLE_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#6C63FF]/10 text-[#6C63FF]">
+                          {roleEntry || 'Generalist'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Skills Chips */}
+                    {m.skills?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {m.skills.slice(0, 4).map((s, idx) => (
+                          <span key={idx} className="px-2 py-0.5 rounded-md bg-[var(--card)] border border-[var(--border)] text-[10px] font-medium">
+                            {s.name} {s.badge ? `(${s.badge})` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {(!team.members || team.members.length === 0) && (
+                <div className="col-span-2 p-8 text-center border-2 border-dashed border-[var(--border)] rounded-2xl text-[13px] text-[var(--text-secondary)]">
+                  No other members have joined yet. Use <strong>Find Members</strong> to invite candidates matching your required skills.
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* TAB 3: PROJECT SUBMISSION */}

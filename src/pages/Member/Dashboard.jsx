@@ -40,6 +40,7 @@ import {
   CheckSquare,
   Inbox,
   User,
+  Crown,
 } from 'lucide-react';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
 
@@ -95,6 +96,7 @@ export default function MemberDashboard() {
   const [editOpen, setEditOpen] = useState(false);
   const [certOpen, setCertOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
+  const [viewingRosterTeam, setViewingRosterTeam] = useState(null);
   const [previewCert, setPreviewCert] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -738,18 +740,57 @@ export default function MemberDashboard() {
                       <div className="text-[12px] text-[var(--text-secondary)] line-clamp-1 mt-0.5">
                         {t.problem?.title || 'Open Project'}
                       </div>
-                      <div className="flex items-center gap-2 mt-2 text-[11px] text-[var(--text-secondary)]">
-                        <Users className="w-3.5 h-3.5" />
-                        <span>{(t.members || []).length} / {t.problem?.teamSize || 4} Members</span>
+                      <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)] mt-2">
+                        <div className="flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-indigo-600" />
+                          <span className="font-semibold">{(t.members || []).length} / {t.problem?.teamSize || 4} Members</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setViewingRosterTeam(t)}
+                          className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold text-[11px]"
+                        >
+                          View Teammates →
+                        </button>
+                      </div>
+
+                      {/* Teammates Avatar Stack & Preview */}
+                      <div className="pt-2 border-t border-[var(--border)] mt-2">
+                        <div className="flex items-center -space-x-2 overflow-hidden py-1">
+                          {t.leader && (
+                            <div title={`${t.leader.name || 'Leader'} (Leader)`}>
+                              <Avatar user={t.leader} size="sm" className="ring-2 ring-[var(--card)]" />
+                            </div>
+                          )}
+                          {(t.members || []).map((m) => (
+                            <div key={m._id || m} title={m.name || 'Member'}>
+                              <Avatar user={m} size="sm" className="ring-2 ring-[var(--card)]" />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="text-[11px] text-[var(--text-secondary)] mt-1 truncate">
+                          {[t.leader?.name ? `${t.leader.name} (Leader)` : null, ...(t.members || []).map((m) => m?.name).filter(Boolean)].filter(Boolean).join(', ')}
+                        </div>
                       </div>
                     </div>
 
-                    <Link
-                      to={`/dashboard/teams/${t._id}/workspace`}
-                      className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold flex items-center justify-center gap-1.5 transition"
-                    >
-                      <Kanban className="w-3.5 h-3.5" /> Open Team Workspace
-                    </Link>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setViewingRosterTeam(t)}
+                        className="w-full text-[12px] font-semibold border border-[var(--border)] flex items-center justify-center gap-1.5"
+                      >
+                        <Users className="w-3.5 h-3.5" /> Teammates
+                      </Button>
+                      <Link
+                        to={`/dashboard/teams/${t._id}/workspace`}
+                        className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold flex items-center justify-center gap-1.5 transition text-center"
+                      >
+                        <Kanban className="w-3.5 h-3.5" /> Workspace
+                      </Link>
+                    </div>
                   </div>
                 );
               })}
@@ -1690,6 +1731,131 @@ export default function MemberDashboard() {
               <Button variant="ghost" onClick={closeCertPreview}>
                 Close Preview
               </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Teammates & Squad Roster Modal */}
+      {viewingRosterTeam && (
+        <Modal
+          open={Boolean(viewingRosterTeam)}
+          onClose={() => setViewingRosterTeam(null)}
+          title={`Team Roster: ${viewingRosterTeam.name}`}
+          subtitle={`${viewingRosterTeam.problem?.title || 'Hackathon Challenge'} • ${viewingRosterTeam.problem?.category || 'General'}`}
+          wide={true}
+        >
+          <div className="space-y-5">
+            {/* Team Leader Section */}
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 mb-2 flex items-center gap-1.5">
+                <Crown className="w-3.5 h-3.5" /> Team Leader
+              </div>
+              {viewingRosterTeam.leader ? (
+                <div className="p-4 rounded-2xl border border-indigo-500/20 bg-indigo-50/40 dark:bg-indigo-950/20 flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <Avatar user={viewingRosterTeam.leader} size="lg" />
+                    <div>
+                      <div className="font-bold text-[15px] flex items-center gap-2">
+                        {viewingRosterTeam.leader.name || 'Team Leader'}
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-600 text-white uppercase">
+                          Leader
+                        </span>
+                      </div>
+                      <div className="text-[12px] text-[var(--text-secondary)]">{viewingRosterTeam.leader.email}</div>
+                      {viewingRosterTeam.leader.personality?.archetype && (
+                        <div className="text-[11px] font-semibold text-purple-600 mt-0.5">
+                          Archetype: {viewingRosterTeam.leader.personality.archetype}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {viewingRosterTeam.leader.skills?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 max-w-xs">
+                      {viewingRosterTeam.leader.skills.slice(0, 4).map((s, idx) => (
+                        <span key={idx} className="px-2 py-0.5 rounded-full bg-white dark:bg-zinc-800 border border-[var(--border)] text-[10px] font-medium">
+                          {s.name} {s.badge ? `(${s.badge})` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl border border-[var(--border)] text-[12px] text-[var(--text-secondary)]">
+                  Leader details unavailable.
+                </div>
+              )}
+            </div>
+
+            {/* Team Members Section */}
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)] mb-2 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5" /> Teammates ({(viewingRosterTeam.members || []).length})
+              </div>
+              {(viewingRosterTeam.members || []).length > 0 ? (
+                <div className="grid sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1">
+                  {(viewingRosterTeam.members || []).map((m) => {
+                    const mid = String(m._id || m);
+                    const isLead = mid === String(viewingRosterTeam.leader?._id || viewingRosterTeam.leader);
+                    const roleEntry = Array.isArray(viewingRosterTeam.memberRoles)
+                      ? viewingRosterTeam.memberRoles.find((mr) => String(mr.userId) === mid)?.teamRole
+                      : (viewingRosterTeam.memberRoles && viewingRosterTeam.memberRoles[mid]);
+                    return (
+                      <div key={mid} className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] flex flex-col justify-between space-y-2">
+                        <div className="flex items-center gap-3">
+                          <Avatar user={m} size="md" />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-[13px] truncate flex items-center gap-1.5">
+                              {m.name || 'Member'}
+                              {isLead && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-600 text-white">Lead</span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-[var(--text-secondary)] truncate">{m.email || 'Participant'}</div>
+                            {roleEntry && (
+                              <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+                                Role: {roleEntry}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {m.personality?.archetype && (
+                          <div className="text-[10px] font-semibold text-purple-600 bg-purple-50 dark:bg-purple-950/30 px-2 py-0.5 rounded-md inline-block">
+                            {m.personality.archetype}
+                          </div>
+                        )}
+                        {m.skills?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1 border-t border-[var(--border)]">
+                            {m.skills.slice(0, 3).map((s, idx) => (
+                              <span key={idx} className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--card)] border border-[var(--border)]">
+                                {s.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl border border-dashed border-[var(--border)] text-center text-[12px] text-[var(--text-secondary)]">
+                  No other members have joined this team yet.
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-[var(--border)]">
+              <Button variant="ghost" onClick={() => setViewingRosterTeam(null)}>
+                Close
+              </Button>
+              <Link
+                to={`/dashboard/teams/${viewingRosterTeam._id}/workspace`}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-bold flex items-center gap-2 transition"
+                onClick={() => setViewingRosterTeam(null)}
+              >
+                <Kanban className="w-4 h-4" /> Open Team Workspace
+              </Link>
             </div>
           </div>
         </Modal>
