@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { userApi, teamApi, errMsg, resolveFileUrl } from '../../services/api';
 import { Avatar } from '../../components/ui/Avatar';
 import ImageUpload from '../../components/ui/ImageUpload';
+import UserProfileModal from '../../components/ui/UserProfileModal';
 import {
   Award,
   Star,
@@ -97,6 +98,7 @@ export default function MemberDashboard() {
   const [certOpen, setCertOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
   const [viewingRosterTeam, setViewingRosterTeam] = useState(null);
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState(null);
   const [previewCert, setPreviewCert] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -758,14 +760,25 @@ export default function MemberDashboard() {
                       <div className="pt-2 border-t border-[var(--border)] mt-2">
                         <div className="flex items-center -space-x-2 overflow-hidden py-1">
                           {t.leader && (
-                            <div title={`${t.leader.name || 'Leader'} (Leader)`}>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setSelectedProfileUserId(String(t.leader?._id || t.leader)); }}
+                              className="cursor-pointer hover:scale-110 transition z-10"
+                              title={`Click to view ${t.leader.name || 'Leader'}'s profile`}
+                            >
                               <Avatar user={t.leader} size="sm" className="ring-2 ring-[var(--card)]" />
-                            </div>
+                            </button>
                           )}
                           {(t.members || []).map((m) => (
-                            <div key={m._id || m} title={m.name || 'Member'}>
+                            <button
+                              key={m._id || m}
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setSelectedProfileUserId(String(m._id || m)); }}
+                              className="cursor-pointer hover:scale-110 transition"
+                              title={`Click to view ${m.name || 'Member'}'s profile`}
+                            >
                               <Avatar user={m} size="sm" className="ring-2 ring-[var(--card)]" />
-                            </div>
+                            </button>
                           ))}
                         </div>
                         <div className="text-[11px] text-[var(--text-secondary)] mt-1 truncate">
@@ -1752,15 +1765,21 @@ export default function MemberDashboard() {
                 <Crown className="w-3.5 h-3.5" /> Team Leader
               </div>
               {viewingRosterTeam.leader ? (
-                <div className="p-4 rounded-2xl border border-indigo-500/20 bg-indigo-50/40 dark:bg-indigo-950/20 flex flex-wrap items-center justify-between gap-4">
+                <button
+                  type="button"
+                  onClick={() => setSelectedProfileUserId(String(viewingRosterTeam.leader?._id || viewingRosterTeam.leader))}
+                  className="w-full text-left p-4 rounded-2xl border border-indigo-500/20 bg-indigo-50/40 dark:bg-indigo-950/20 flex flex-wrap items-center justify-between gap-4 hover:border-indigo-500/40 transition group cursor-pointer"
+                  title="Click to view Team Leader's profile"
+                >
                   <div className="flex items-center gap-3">
-                    <Avatar user={viewingRosterTeam.leader} size="lg" />
+                    <Avatar user={viewingRosterTeam.leader} size="lg" className="group-hover:ring-2 group-hover:ring-indigo-600 transition" />
                     <div>
-                      <div className="font-bold text-[15px] flex items-center gap-2">
-                        {viewingRosterTeam.leader.name || 'Team Leader'}
+                      <div className="font-bold text-[15px] flex items-center gap-2 group-hover:text-indigo-600 transition">
+                        <span>{viewingRosterTeam.leader.name || 'Team Leader'}</span>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-600 text-white uppercase">
                           Leader
                         </span>
+                        <ExternalLink className="w-3.5 h-3.5 text-indigo-600 opacity-0 group-hover:opacity-100 transition" />
                       </div>
                       <div className="text-[12px] text-[var(--text-secondary)]">{viewingRosterTeam.leader.email}</div>
                       {viewingRosterTeam.leader.personality?.archetype && (
@@ -1779,7 +1798,7 @@ export default function MemberDashboard() {
                       ))}
                     </div>
                   )}
-                </div>
+                </button>
               ) : (
                 <div className="p-3 rounded-xl border border-[var(--border)] text-[12px] text-[var(--text-secondary)]">
                   Leader details unavailable.
@@ -1801,15 +1820,22 @@ export default function MemberDashboard() {
                       ? viewingRosterTeam.memberRoles.find((mr) => String(mr.userId) === mid)?.teamRole
                       : (viewingRosterTeam.memberRoles && viewingRosterTeam.memberRoles[mid]);
                     return (
-                      <div key={mid} className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] flex flex-col justify-between space-y-2">
+                      <button
+                        key={mid}
+                        type="button"
+                        onClick={() => setSelectedProfileUserId(mid)}
+                        className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-indigo-500/40 transition flex flex-col justify-between space-y-2 text-left group cursor-pointer"
+                        title={`Click to view ${m.name || 'Member'}'s full profile`}
+                      >
                         <div className="flex items-center gap-3">
-                          <Avatar user={m} size="md" />
+                          <Avatar user={m} size="md" className="group-hover:ring-2 group-hover:ring-indigo-600 transition" />
                           <div className="min-w-0 flex-1">
-                            <div className="font-bold text-[13px] truncate flex items-center gap-1.5">
-                              {m.name || 'Member'}
+                            <div className="font-bold text-[13px] truncate flex items-center gap-1.5 group-hover:text-indigo-600 transition">
+                              <span>{m.name || 'Member'}</span>
                               {isLead && (
                                 <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-600 text-white">Lead</span>
                               )}
+                              <ExternalLink className="w-3 h-3 text-indigo-600 opacity-0 group-hover:opacity-100 transition" />
                             </div>
                             <div className="text-[11px] text-[var(--text-secondary)] truncate">{m.email || 'Participant'}</div>
                             {roleEntry && (
@@ -1833,7 +1859,7 @@ export default function MemberDashboard() {
                             ))}
                           </div>
                         )}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -1860,6 +1886,13 @@ export default function MemberDashboard() {
           </div>
         </Modal>
       )}
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        open={!!selectedProfileUserId}
+        userId={selectedProfileUserId}
+        onClose={() => setSelectedProfileUserId(null)}
+      />
     </div>
   );
 }

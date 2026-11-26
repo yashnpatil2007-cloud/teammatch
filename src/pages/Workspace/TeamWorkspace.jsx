@@ -6,6 +6,7 @@ import { Modal, Field, inputCls } from '../../components/ui/Modal';
 import { teamApi, submissionApi, errMsg, resolveFileUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../../components/ui/Avatar';
+import UserProfileModal from '../../components/ui/UserProfileModal';
 import {
   Users,
   CheckCircle2,
@@ -65,6 +66,7 @@ export default function TeamWorkspace() {
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [activeTab, setActiveTab] = useState(validInitialTab); // 'tasks' | 'milestones' | 'submission' | 'chat' | 'resources' | 'timeline'
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState(null);
 
   // Task creation modal
   const [taskModalOpen, setTaskModalOpen] = useState(false);
@@ -674,15 +676,20 @@ export default function TeamWorkspace() {
               <Crown className="w-4 h-4 text-amber-500" /> Team Leader & Founder
             </div>
             {team.leader ? (
-              <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-[#6C63FF]/5 border border-[#6C63FF]/15">
+              <div
+                onClick={() => setSelectedProfileUserId(String(team.leader._id || team.leader))}
+                className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-[#6C63FF]/5 border border-[#6C63FF]/15 hover:border-[#6C63FF]/40 hover:bg-[#6C63FF]/10 transition cursor-pointer group"
+                title="Click to view Leader's full profile"
+              >
                 <div className="flex items-center gap-3">
-                  <Avatar user={team.leader} size="lg" />
+                  <Avatar user={team.leader} size="lg" className="group-hover:ring-2 group-hover:ring-[#6C63FF] transition" />
                   <div>
-                    <div className="font-bold text-[16px] flex items-center gap-2">
+                    <div className="font-bold text-[16px] flex items-center gap-2 group-hover:text-[#6C63FF] transition">
                       {team.leader.name || 'Team Leader'}
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#6C63FF] text-white uppercase">
                         Squad Lead
                       </span>
+                      <ExternalLink className="w-3.5 h-3.5 text-[#6C63FF] opacity-0 group-hover:opacity-100 transition" />
                     </div>
                     <div className="text-[12px] text-[var(--text-secondary)]">{team.leader.email}</div>
                     {team.leader.personality?.archetype && (
@@ -736,13 +743,18 @@ export default function TeamWorkspace() {
 
                 return (
                   <div key={mid} className="p-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] flex flex-col justify-between space-y-3">
-                    <div className="flex items-start justify-between gap-3">
+                    <div
+                      onClick={() => setSelectedProfileUserId(mid)}
+                      className="flex items-start justify-between gap-3 cursor-pointer group hover:opacity-90 transition"
+                      title="Click to view member profile"
+                    >
                       <div className="flex items-center gap-3">
-                        <Avatar user={m} size="md" />
+                        <Avatar user={m} size="md" className="group-hover:ring-2 group-hover:ring-[#6C63FF] transition" />
                         <div>
-                          <div className="font-bold text-[14px] flex items-center gap-1.5">
+                          <div className="font-bold text-[14px] flex items-center gap-1.5 group-hover:text-[#6C63FF] transition">
                             {m.name || 'Member'}
                             {isLead && <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#6C63FF] text-white">Lead</span>}
+                            <ExternalLink className="w-3 h-3 text-[#6C63FF] opacity-0 group-hover:opacity-100 transition" />
                           </div>
                           <div className="text-[12px] text-[var(--text-secondary)]">{m.email || 'Participant'}</div>
                           {m.personality?.archetype && (
@@ -1263,6 +1275,13 @@ export default function TeamWorkspace() {
           </div>
         </form>
       </Modal>
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        open={!!selectedProfileUserId}
+        userId={selectedProfileUserId}
+        onClose={() => setSelectedProfileUserId(null)}
+      />
     </div>
   );
 }

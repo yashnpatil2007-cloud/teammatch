@@ -5,11 +5,12 @@ import { Button } from '../../components/ui/Button';
 import { Modal, Field, inputCls } from '../../components/ui/Modal';
 import { Avatar } from '../../components/ui/Avatar';
 import ImageUpload from '../../components/ui/ImageUpload';
+import UserProfileModal from '../../components/ui/UserProfileModal';
 import { problemApi, teamApi, submissionApi, errMsg, resolveFileUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import {
   UsersRound, Plus, BarChart3, RefreshCw, Check, X, Settings, Trash2,
-  UserMinus, UserPlus, LayoutDashboard, Send, Inbox, Briefcase, CheckSquare, FileCheck, Shield
+  UserMinus, UserPlus, LayoutDashboard, Send, Inbox, Briefcase, CheckSquare, FileCheck, Shield, ExternalLink
 } from 'lucide-react';
 
 const TEAM_ROLE_OPTIONS = ['Leader', 'Frontend', 'Backend', 'Full Stack', 'AI / ML', 'UI / UX', 'Data / Research', 'DevOps', 'Presenter', 'Member'];
@@ -30,7 +31,7 @@ const leaderTabFromPath = (path) => {
   return ['create', 'teams', 'invitations', 'requests', 'workspace', 'tasks', 'submissions'].includes(seg) ? seg : 'overview';
 };
 
-function TeamManageModal({ open, team, problems, onClose, onSaved }) {
+function TeamManageModal({ open, team, problems, onClose, onSaved, onSelectProfile }) {
   const [name, setName] = useState('');
   const [problemId, setProblemId] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
@@ -144,14 +145,24 @@ function TeamManageModal({ open, team, problems, onClose, onSaved }) {
               const isLeader = memberId === String(team.leader?._id || team.leader);
               const assignedRole = memberRoles[memberId] || (isLeader ? 'Leader' : 'Member');
               return (
-                <div key={memberId} className="flex flex-wrap items-center gap-3 p-2.5 rounded-xl border border-[var(--border)]">
-                  <Avatar user={m} size="sm" />
-                  <div className="flex-1 min-w-[140px]">
-                    <div className="text-[13px] font-semibold truncate">{m.name || memberId}</div>
-                    <div className="text-[11px] text-[var(--text-secondary)] capitalize">
-                      {m.role || 'member'}{isLeader ? ' • Team Leader' : ''}
+                <div key={memberId} className="flex flex-wrap items-center gap-3 p-2.5 rounded-xl border border-[var(--border)] hover:border-indigo-500/30 transition">
+                  <button
+                    type="button"
+                    onClick={() => onSelectProfile?.(memberId)}
+                    className="flex items-center gap-3 flex-1 min-w-[140px] text-left hover:opacity-85 transition group cursor-pointer"
+                    title={`Click to view ${m.name || 'member'}'s full profile`}
+                  >
+                    <Avatar user={m} size="sm" className="group-hover:ring-2 group-hover:ring-[#6C63FF] transition" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-semibold truncate group-hover:text-[#6C63FF] flex items-center gap-1 transition">
+                        <span>{m.name || memberId}</span>
+                        <ExternalLink className="w-3 h-3 text-[#6C63FF] opacity-0 group-hover:opacity-100 transition" />
+                      </div>
+                      <div className="text-[11px] text-[var(--text-secondary)] capitalize">
+                        {m.role || 'member'}{isLeader ? ' • Team Leader' : ''}
+                      </div>
                     </div>
-                  </div>
+                  </button>
                   <select
                     value={assignedRole}
                     onChange={(e) => setMemberRoles((prev) => ({ ...prev, [memberId]: e.target.value }))}
@@ -192,13 +203,23 @@ function TeamManageModal({ open, team, problems, onClose, onSaved }) {
                       key={candidate?._id || candidate}
                       className="flex items-center gap-3 p-2 rounded-xl border border-indigo-500/30 bg-indigo-50/20 dark:bg-indigo-950/20"
                     >
-                      <Avatar user={candidate} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-semibold truncate">{candidate?.name || 'Candidate'}</div>
-                        <div className="text-[11px] text-[var(--text-secondary)] truncate">
-                          {candidate?.skills?.slice(0, 2).map((s) => s.name || s).join(', ') || 'Student'}
+                      <button
+                        type="button"
+                        onClick={() => onSelectProfile?.(candidate?._id || inv.user)}
+                        className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-85 transition group cursor-pointer"
+                        title="Click to view candidate profile"
+                      >
+                        <Avatar user={candidate} size="sm" className="group-hover:ring-2 group-hover:ring-[#6C63FF] transition" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] font-semibold truncate group-hover:text-[#6C63FF] flex items-center gap-1 transition">
+                            <span>{candidate?.name || 'Candidate'}</span>
+                            <ExternalLink className="w-3 h-3 text-[#6C63FF] opacity-0 group-hover:opacity-100 transition" />
+                          </div>
+                          <div className="text-[11px] text-[var(--text-secondary)] truncate">
+                            {candidate?.skills?.slice(0, 2).map((s) => s.name || s).join(', ') || 'Student'}
+                          </div>
                         </div>
-                      </div>
+                      </button>
                       <button
                         type="button"
                         onClick={async () => {
@@ -265,6 +286,7 @@ export default function LeaderDashboard() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [manageTeam, setManageTeam] = useState(null);
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState(null);
 
   const load = async () => {
     try {
@@ -561,10 +583,15 @@ export default function LeaderDashboard() {
                         </div>
                         <div className="flex flex-wrap gap-2 items-center">
                           {t.leader && (
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#6C63FF]/10 border border-[#6C63FF]/20 text-[11px] font-semibold text-[#6C63FF]">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProfileUserId(String(t.leader?._id || t.leader))}
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#6C63FF]/10 border border-[#6C63FF]/20 text-[11px] font-semibold text-[#6C63FF] hover:bg-[#6C63FF]/20 transition cursor-pointer"
+                              title={`View ${t.leader.name || 'Leader'}'s profile`}
+                            >
                               <Avatar user={t.leader} size="xs" />
                               <span>{t.leader.name || 'Leader'} <strong>(Leader)</strong></span>
-                            </div>
+                            </button>
                           )}
                           {(t.members || []).map((m) => {
                             const mid = String(m._id || m);
@@ -572,7 +599,13 @@ export default function LeaderDashboard() {
                               ? t.memberRoles.find((mr) => String(mr.userId) === mid)?.teamRole
                               : (t.memberRoles && t.memberRoles[mid]);
                             return (
-                              <div key={mid} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--surface)] border border-[var(--border)] text-[11px]">
+                              <button
+                                key={mid}
+                                type="button"
+                                onClick={() => setSelectedProfileUserId(mid)}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--surface)] border border-[var(--border)] text-[11px] hover:border-[#6C63FF] hover:text-[#6C63FF] transition cursor-pointer"
+                                title={`View ${m.name || 'Member'}'s profile`}
+                              >
                                 <Avatar user={m} size="xs" />
                                 <span className="font-medium text-[var(--text-primary)]">{m.name || 'Member'}</span>
                                 {roleEntry && (
@@ -580,7 +613,7 @@ export default function LeaderDashboard() {
                                     • {roleEntry}
                                   </span>
                                 )}
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -706,7 +739,21 @@ export default function LeaderDashboard() {
         </Card>
       )}
 
-      <TeamManageModal open={!!manageTeam} team={manageTeam} problems={problems} onClose={() => setManageTeam(null)} onSaved={() => load()} />
+      <TeamManageModal
+        open={!!manageTeam}
+        team={manageTeam}
+        problems={problems}
+        onClose={() => setManageTeam(null)}
+        onSaved={() => load()}
+        onSelectProfile={(uid) => setSelectedProfileUserId(uid)}
+      />
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        open={!!selectedProfileUserId}
+        userId={selectedProfileUserId}
+        onClose={() => setSelectedProfileUserId(null)}
+      />
     </div>
   );
 }
