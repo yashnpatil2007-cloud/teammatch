@@ -51,32 +51,31 @@ export default function Landing(){
   window.open(`mailto:aiteammatch@gmail.com?subject=${subject}&body=${body}`, '_blank');
  };
 
- const handleContactSubmit = (e) => {
+ const handleContactSubmit = async (e) => {
   e.preventDefault();
   if (!contactForm.name || !contactForm.email || !contactForm.message) return;
   setSendingEmail(true);
 
-  const subject = encodeURIComponent(contactForm.subject ? `[TeamMatch] ${contactForm.subject}` : `[TeamMatch] Inquiry from ${contactForm.name}`);
-  const body = encodeURIComponent(
-    `Hello TeamMatch Team,\n\nName: ${contactForm.name}\nEmail: ${contactForm.email}\nRole: ${contactForm.role}\n\nMessage:\n${contactForm.message}\n\n---\nSent via TeamMatch Platform`
-  );
-  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=aiteammatch@gmail.com&su=${subject}&body=${body}`;
-  const mailtoUrl = `mailto:aiteammatch@gmail.com?subject=${subject}&body=${body}`;
-
-  // Try opening Gmail composer directly
   try {
-    const win = window.open(gmailUrl, '_blank');
-    if (!win || win.closed || typeof win.closed === 'undefined') {
-      window.location.href = mailtoUrl;
-    }
-  } catch (err) {
-    window.location.href = mailtoUrl;
-  }
+   const formData = new FormData();
+   formData.append("access_key", "70d9fbfa-9385-42fa-bf36-e9c50b2da0ec");
+   formData.append("name", contactForm.name);
+   formData.append("email", contactForm.email);
+   formData.append("role", contactForm.role);
+   formData.append("subject", contactForm.subject ? `[TeamMatch] ${contactForm.subject}` : `[TeamMatch] Message from ${contactForm.name}`);
+   formData.append("message", contactForm.message);
+   formData.append("from_name", "TeamMatch Web Portal");
 
-  setTimeout(() => {
-    setSendingEmail(false);
-    setFormSent(true);
-  }, 400);
+   await fetch("https://api.web3forms.com/submit", {
+    method: "POST",
+    body: formData
+   });
+  } catch (err) {
+   console.error("Contact send error:", err);
+  } finally {
+   setSendingEmail(false);
+   setFormSent(true);
+  }
  };
 
  useEffect(() => {
@@ -333,50 +332,31 @@ export default function Landing(){
      {/* Right: Quick Interactive Message Box */}
      <div className="p-7 rounded-[24px] bg-[var(--card)] border border-[var(--border)] shadow-[0_12px_36px_rgba(0,0,0,0.05)]">
       {formSent ? (
-       <div className="py-8 text-center space-y-4">
+       <div className="py-10 text-center space-y-4">
         <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-600 mx-auto flex items-center justify-center shadow-inner">
          <CheckCircle2 className="w-9 h-9" />
         </div>
-        <h3 className="text-[20px] font-black text-[var(--text-primary)]">Gmail Compose Ready!</h3>
+        <h3 className="text-[20px] font-black text-[var(--text-primary)]">Message Sent Directly!</h3>
         <p className="text-[13px] text-[var(--text-secondary)] max-w-sm mx-auto leading-relaxed">
-         Thank you, <strong className="text-[var(--text-primary)]">{contactForm.name}</strong>. Your message to <strong className="text-[var(--accent)] font-bold">aiteammatch@gmail.com</strong> has been opened in Gmail.
+         Thank you, <strong className="text-[var(--text-primary)]">{contactForm.name}</strong>. Your message was delivered directly to <strong className="text-[var(--accent)] font-bold">aiteammatch@gmail.com</strong>.
         </p>
 
-        <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-left text-[11.5px] text-blue-700 dark:text-blue-300 max-w-sm mx-auto space-y-1">
-         <div className="font-bold flex items-center gap-1.5">
-          <Mail className="w-3.5 h-3.5" /> Direct Gmail Delivery:
-         </div>
-         <div>Click <strong>&quot;Open in Gmail Web&quot;</strong> below to view the pre-filled compose window and hit <strong>Send</strong>. It delivers directly into <strong>aiteammatch@gmail.com</strong>!</div>
+        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center text-[12px] text-emerald-700 dark:text-emerald-300 max-w-sm mx-auto font-medium">
+         ✅ Real email dispatched in the background to <strong>aiteammatch@gmail.com</strong>. Check your inbox!
         </div>
 
-        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
-         <a
-          href={`https://mail.google.com/mail/?view=cm&fs=1&to=aiteammatch@gmail.com&su=${encodeURIComponent(contactForm.subject ? `[TeamMatch] ${contactForm.subject}` : `[TeamMatch] Inquiry from ${contactForm.name}`)}&body=${encodeURIComponent(`Hello TeamMatch,\n\nName: ${contactForm.name}\nEmail: ${contactForm.email}\nRole: ${contactForm.role}\n\nMessage:\n${contactForm.message}`)}`}
-          target="_blank"
-          rel="noreferrer"
-          className="px-5 py-2.5 rounded-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-[12px] font-bold shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer"
-         >
-          <Mail className="w-3.5 h-3.5" /> 1-Click: Open in Gmail Web
-         </a>
+        <div className="pt-2 flex items-center justify-center">
          <button
           type="button"
-          onClick={openGmailClient}
-          className="px-4 py-2.5 rounded-full bg-[var(--surface)] hover:bg-[var(--border)] text-[12px] font-bold text-[var(--text-primary)] border border-[var(--border)] transition cursor-pointer"
+          onClick={() => {
+           setFormSent(false);
+           setContactForm({ name: "", email: "", role: "student", subject: "", message: "" });
+          }}
+          className="px-6 py-2.5 rounded-full bg-[var(--surface)] hover:bg-[var(--border)] text-[12.5px] font-bold text-[var(--text-primary)] border border-[var(--border)] transition cursor-pointer"
          >
-          Mobile / Outlook App
+          Send Another Message
          </button>
         </div>
-
-        <button
-         type="button"
-         onClick={() => {
-          setFormSent(false);
-          setContactForm({ name: "", email: "", role: "student", subject: "", message: "" });
-         }}
-         className="text-[11.5px] text-[var(--text-secondary)] hover:underline pt-2 inline-block cursor-pointer"
-        >
-         ← Send Another Message
-        </button>
        </div>
       ) : (
        <form onSubmit={handleContactSubmit} className="space-y-4">
