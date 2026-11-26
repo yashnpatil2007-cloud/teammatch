@@ -237,13 +237,13 @@ export default function Landing(){
         <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-3">
          <Phone className="w-5 h-5" />
         </div>
-        <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Student Helpline &amp; WhatsApp</div>
-        <div className="text-[15px] font-bold text-[var(--text-primary)] mt-1">+91 98765 43210</div>
+        <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Yash Patil • Lead &amp; WhatsApp</div>
+        <div className="text-[15px] font-bold text-[var(--text-primary)] mt-1">+91 91753 15237</div>
         <p className="text-[11.5px] text-[var(--text-secondary)] mt-1.5 leading-relaxed">
          Direct call or WhatsApp chat for team formation support and fast resolution.
         </p>
         <a
-         href="https://wa.me/919876543210?text=Hi%20TeamMatch%20Support"
+         href="https://wa.me/919175315237?text=Hi%20Yash,%20regarding%20TeamMatch"
          target="_blank"
          rel="noreferrer"
          className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] font-bold text-emerald-600 hover:underline"
@@ -452,9 +452,9 @@ export default function Landing(){
         <Mail className="w-4 h-4" />
        </a>
        <a
-        href="tel:+919876543210"
+        href="tel:+919175315237"
         className="w-9 h-9 rounded-full bg-[var(--surface)] hover:bg-emerald-600 hover:text-white flex items-center justify-center transition border border-[var(--border)]"
-        title="Call Us: +91 98765 43210"
+        title="Call Yash Patil: +91 91753 15237"
        >
         <Phone className="w-4 h-4" />
        </a>
@@ -525,9 +525,9 @@ export default function Landing(){
        <li className="flex items-start gap-2">
         <Phone className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
         <div>
-         <div className="font-semibold text-[var(--text-primary)]">Helpline</div>
-         <a href="tel:+919876543210" className="hover:underline">
-          +91 98765 43210
+         <div className="font-semibold text-[var(--text-primary)]">Yash Patil (Lead)</div>
+         <a href="tel:+919175315237" className="hover:underline">
+          +91 91753 15237
          </a>
         </div>
        </li>
