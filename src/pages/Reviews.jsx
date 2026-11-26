@@ -29,7 +29,9 @@ export default function Reviews(){
  },[reviewee]);
 
  const submit = async (e)=>{
-  e.preventDefault(); setErr(''); setMsg(''); setBusy(true);
+  e.preventDefault(); setErr(''); setMsg('');
+  if(!reviewee) return setErr('Please select a member to review.');
+  setBusy(true);
   try{
    const data = await reviewApi.create({ ...form, reviewee });
    setReviews(r=>[data,...r]);

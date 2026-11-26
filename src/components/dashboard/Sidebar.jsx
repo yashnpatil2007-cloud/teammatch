@@ -108,6 +108,7 @@ export default function Sidebar({ mobileOpen, onCloseMobile }) {
           <NavLink
             key={item.to}
             to={item.to}
+            end={['/dashboard/organizer', '/dashboard/leader', '/dashboard/member', '/dashboard/admin'].includes(item.to)}
             onClick={() => onCloseMobile && onCloseMobile()}
             className={({isActive})=> `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium ${isActive?'bg-[var(--text-primary)] text-[var(--background)]':'text-[var(--text-secondary)] hover:bg-[var(--surface)] hover:text-[var(--text-primary)]'}`}>
             <item.icon className="w-4 h-4" /> {item.label}

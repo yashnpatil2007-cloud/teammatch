@@ -29,6 +29,7 @@ export default function Landing(){
  const [copiedEmail, setCopiedEmail] = useState(false);
  const [formSent, setFormSent] = useState(false);
  const [sendingEmail, setSendingEmail] = useState(false);
+ const [sendErr, setSendErr] = useState("");
  const [contactForm, setContactForm] = useState({
   name: "",
   email: "",
@@ -55,6 +56,7 @@ export default function Landing(){
   e.preventDefault();
   if (!contactForm.name || !contactForm.email || !contactForm.message) return;
   setSendingEmail(true);
+  setSendErr("");
 
   try {
    const formData = new FormData();
@@ -66,15 +68,20 @@ export default function Landing(){
    formData.append("message", contactForm.message);
    formData.append("from_name", "TeamMatch Web Portal");
 
-   await fetch("https://api.web3forms.com/submit", {
+   const res = await fetch("https://api.web3forms.com/submit", {
     method: "POST",
     body: formData
    });
+   const data = await res.json().catch(() => ({}));
+   if (res.ok && data.success) {
+    setFormSent(true);
+   } else {
+    setSendErr(data.message || "Could not dispatch message automatically. Please use direct email below.");
+   }
   } catch (err) {
-   console.error("Contact send error:", err);
+   setSendErr("Network error while sending message. You can send directly using the email link below.");
   } finally {
    setSendingEmail(false);
-   setFormSent(true);
   }
  };
 
@@ -288,7 +295,7 @@ export default function Landing(){
          <Headphones className="w-5 h-5" />
         </div>
         <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Organizer Partnerships</div>
-        <div className="text-[15px] font-bold text-[var(--text-primary)] mt-1 truncate">organizer@teammatch.ai</div>
+        <div className="text-[15px] font-bold text-[var(--text-primary)] mt-1 truncate">aiteammatch@gmail.com</div>
         <p className="text-[11.5px] text-[var(--text-secondary)] mt-1.5 leading-relaxed">
          Dedicated onboarding, custom problem statement setup, and judging panels.
         </p>
@@ -446,6 +453,15 @@ export default function Landing(){
          />
         </div>
 
+        {sendErr && (
+         <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-[12px] text-red-600 dark:text-red-400 space-y-1.5">
+          <div>{sendErr}</div>
+          <button type="button" onClick={openGmailClient} className="font-bold underline text-[var(--accent)]">
+           Open in Email App instead →
+          </button>
+         </div>
+        )}
+
         <button
          type="submit"
          disabled={sendingEmail}
@@ -516,11 +532,11 @@ export default function Landing(){
         <Code2 className="w-4 h-4" />
        </a>
        <a
-        href="https://discord.gg"
+        href="https://wa.me/919175315237?text=Hi%20Yash,%20regarding%20TeamMatch"
         target="_blank"
         rel="noreferrer"
-        className="w-9 h-9 rounded-full bg-[var(--surface)] hover:bg-[#5865F2] hover:text-white flex items-center justify-center transition border border-[var(--border)]"
-        title="Discord Community"
+        className="w-9 h-9 rounded-full bg-[var(--surface)] hover:bg-[#25D366] hover:text-white flex items-center justify-center transition border border-[var(--border)]"
+        title="WhatsApp Support"
        >
         <MessageSquare className="w-4 h-4" />
        </a>

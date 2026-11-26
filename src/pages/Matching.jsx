@@ -3,6 +3,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Avatar } from '../components/ui/Avatar';
+import UserProfileModal from '../components/ui/UserProfileModal';
 import { problemApi, teamApi, errMsg } from '../services/api';
 import {
   Brain,
@@ -52,6 +53,7 @@ export default function Matching() {
   // Breakdown Modal State
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState(null);
 
   useEffect(() => {
     problemApi
@@ -357,10 +359,24 @@ export default function Matching() {
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     {/* User Identity */}
                     <div className="flex items-start gap-3.5 flex-1 min-w-0">
-                      <Avatar user={u} size="lg" className="rounded-2xl" />
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProfileUserId(String(u._id))}
+                        className="shrink-0 hover:opacity-85 transition cursor-pointer"
+                        title={`View ${u.name}'s full profile`}
+                      >
+                        <Avatar user={u} size="lg" className="rounded-2xl hover:ring-2 hover:ring-[#6C63FF] transition" />
+                      </button>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-[15px] font-extrabold truncate">{u.name}</h3>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProfileUserId(String(u._id))}
+                            className="text-[15px] font-extrabold truncate hover:text-[#6C63FF] transition cursor-pointer text-left"
+                            title={`View ${u.name}'s full profile`}
+                          >
+                            {u.name}
+                          </button>
                           <span
                             className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getConfidenceStyle(
                               r.confidence
@@ -849,6 +865,12 @@ export default function Matching() {
           </div>
         </Modal>
       )}
+
+      <UserProfileModal
+        open={!!selectedProfileUserId}
+        userId={selectedProfileUserId}
+        onClose={() => setSelectedProfileUserId(null)}
+      />
     </div>
   );
 }

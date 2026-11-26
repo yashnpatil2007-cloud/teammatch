@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Avatar } from '../components/ui/Avatar';
+import UserProfileModal from '../components/ui/UserProfileModal';
 import { userApi, teamApi, statsApi, errMsg } from '../services/api';
 import { Trophy, Star, Medal, Crown, UsersRound, TrendingUp, Search, X } from 'lucide-react';
 
@@ -23,6 +24,7 @@ export default function Leaderboard(){
  const [skills,setSkills]=useState([]);
  const [tab,setTab]=useState('members');
  const [err,setErr]=useState('');
+ const [selectedProfileUserId, setSelectedProfileUserId] = useState(null);
 
  useEffect(()=>{
   Promise.all([
@@ -59,7 +61,7 @@ export default function Leaderboard(){
  {tab!=='skills' && (
  <div className="grid lg:grid-cols-3 gap-4">
  {podium.map((u,i)=>(
- <Card key={u._id} className={`p-6 text-center relative overflow-hidden ${i===0?'ring-2 ring-amber-400':''}`}>
+ <Card key={u._id} onClick={() => { const uid = tab==='teams' ? (u.leader?._id || u.leader) : u._id; if(uid) setSelectedProfileUserId(String(uid)); }} className={`p-6 text-center relative overflow-hidden cursor-pointer hover:border-[#6C63FF]/40 transition ${i===0?'ring-2 ring-amber-400':''}`}>
  {i===0 && <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center"><Crown className="w-4 h-4 text-[var(--background)]"/></div>}
  <div className="flex justify-center"><Avatar user={tab==='teams' ? u.leader : u} size="xl" /></div>
  <div className="mt-3 font-bold">{tab==='teams' ? u.name : u.name}</div>
@@ -101,12 +103,13 @@ export default function Leaderboard(){
  <table className="w-full text-[13px]">
  <thead className="text-[11px] tracking-widest uppercase text-[var(--text-secondary)]"><tr><th className="text-left py-2">Rank</th><th className="text-left">User</th><th>Role</th><th>Skills</th><th>Reliability</th><th>Rating</th></tr></thead>
  <tbody>
- {(tab==='reliability'?fReliability:fUsers).map((u,i)=> <tr key={u._id} className="border-t border-[var(--border)]"><td className="py-3 font-bold">#{i+1}</td><td className="py-3"><div className="flex items-center gap-2"><Avatar user={u} size="sm" /><span className="font-semibold">{u.name}</span></div></td><td className="text-center capitalize">{u.role}</td><td className="text-center text-[12px] text-[var(--text-secondary)]">{u.skills?.slice(0,3).map(s=>s.name).join(', ')||'—'}</td><td className="text-center"><span className="px-2 py-1 rounded-full bg-emerald-500 text-white text-[11px] font-bold">{u.reliabilityScore}</span></td><td className="text-center"><span className="inline-flex items-center gap-1"><Star className="w-3 h-3 fill-amber-400 text-amber-400"/> {u.averageRating||'—'}</span></td></tr>)}
+ {(tab==='reliability'?fReliability:fUsers).map((u,i)=> <tr key={u._id} onClick={() => setSelectedProfileUserId(String(u._id))} className="border-t border-[var(--border)] hover:bg-[var(--surface)] cursor-pointer transition"><td className="py-3 font-bold">#{i+1}</td><td className="py-3"><div className="flex items-center gap-2"><Avatar user={u} size="sm" /><span className="font-semibold hover:text-[#6C63FF] transition">{u.name}</span></div></td><td className="text-center capitalize">{u.role}</td><td className="text-center text-[12px] text-[var(--text-secondary)]">{u.skills?.slice(0,3).map(s=>s.name).join(', ')||'—'}</td><td className="text-center"><span className="px-2 py-1 rounded-full bg-emerald-500 text-white text-[11px] font-bold">{u.reliabilityScore}</span></td><td className="text-center"><span className="inline-flex items-center gap-1"><Star className="w-3 h-3 fill-amber-400 text-amber-400"/> {u.averageRating||'—'}</span></td></tr>)}
  </tbody>
  </table>
  </div>
  </Card>
  )}
+ <UserProfileModal open={!!selectedProfileUserId} userId={selectedProfileUserId} onClose={() => setSelectedProfileUserId(null)} />
  </div>
  );
 }
