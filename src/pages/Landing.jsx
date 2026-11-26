@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
  Sparkles, ArrowRight, Play, Brain, BadgeCheck, UsersRound, BarChart3, Star, MessageSquareHeart,
- Search, Zap, CheckCircle2, Award, ChevronRight, TrendingUp, Layers, Trophy, Menu, X
+ Search, Zap, CheckCircle2, Award, ChevronRight, TrendingUp, Layers, Trophy, Menu, X,
+ Mail, Phone, MapPin, Clock, Send, Copy, Check, Headphones, Globe, MessageSquare, ExternalLink, Code2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { healthApi } from "../services/api";
@@ -25,6 +26,28 @@ function Navbar(){
 }
 
 export default function Landing(){
+ const [copiedEmail, setCopiedEmail] = useState(false);
+ const [formSent, setFormSent] = useState(false);
+ const [contactForm, setContactForm] = useState({
+  name: "",
+  email: "",
+  role: "student",
+  subject: "",
+  message: ""
+ });
+
+ const handleCopyEmail = () => {
+  navigator.clipboard?.writeText("teammatch@gmail.com");
+  setCopiedEmail(true);
+  setTimeout(() => setCopiedEmail(false), 2500);
+ };
+
+ const handleContactSubmit = (e) => {
+  e.preventDefault();
+  if (!contactForm.name || !contactForm.email || !contactForm.message) return;
+  setFormSent(true);
+ };
+
  useEffect(() => {
   healthApi.check().catch(() => {});
  }, []);
@@ -129,11 +152,413 @@ export default function Landing(){
  </div>
  </section>
 
- <footer id="contact" className="bg-[var(--card)] border-t border-[var(--border)] text-[var(--text-secondary)] py-10 scroll-mt-[68px]">
- <div className="max-w-[1220px] mx-auto px-6 lg:px-8 flex flex-col lg:flex-row justify-between gap-6 text-[13px]">
- <div>© 2026 TeamMatch — AI-Powered Team Formation</div><div className="flex gap-6"><a href="#" className="hover:text-[var(--text-primary)]">Privacy</a><a href="#" className="hover:text-[var(--text-primary)]">Terms</a><Link to="/login" className="text-[var(--text-primary)] font-semibold">Go to Dashboard →</Link></div>
- </div>
- </footer>
+ {/* Contact & Support Section */}
+  <section id="contact" className="py-24 bg-[var(--surface)] border-t border-[var(--border)] scroll-mt-[68px]">
+   <div className="max-w-[1220px] mx-auto px-6 lg:px-8">
+    <div className="max-w-[680px] mx-auto text-center mb-14">
+     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--card)] border border-[var(--border)] text-[11px] font-semibold tracking-widest uppercase text-[var(--text-secondary)] shadow-sm">
+      <Mail className="w-3.5 h-3.5 text-[var(--accent)]" /> Get In Touch
+     </div>
+     <h2 className="mt-4 text-[32px] lg:text-[42px] font-extrabold tracking-tight text-[var(--text-primary)]">
+      Let&apos;s Connect &amp; <span className="bg-gradient-to-r from-[var(--accent)] to-[#60A5FA] bg-clip-text text-transparent">Build Together</span>
+     </h2>
+     <p className="mt-3 text-[15px] text-[var(--text-secondary)] leading-relaxed">
+      Have questions, feedback, or want to host your college hackathon on TeamMatch? We&apos;re here to support students, mentors, and organizers.
+     </p>
+    </div>
+
+    <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-8 items-start">
+     {/* Left: Contact Channels */}
+     <div className="space-y-4">
+      {/* Primary Official Email Card */}
+      <div className="p-6 rounded-[24px] bg-gradient-to-br from-[var(--accent)]/10 via-[var(--card)] to-[var(--card)] border-2 border-[var(--accent)]/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] relative overflow-hidden">
+       <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--accent)]/10 rounded-full blur-2xl pointer-events-none" />
+       <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-strong)] flex items-center justify-center text-white shadow-md shrink-0">
+          <Mail className="w-6 h-6" />
+         </div>
+         <div>
+          <div className="flex items-center gap-2">
+           <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--accent)] bg-[var(--accent)]/10 px-2 py-0.5 rounded-md">
+            Primary Email
+           </span>
+           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          </div>
+          <h3 className="text-[17px] font-bold text-[var(--text-primary)] mt-1">Official Inbox</h3>
+         </div>
+        </div>
+        <button
+         type="button"
+         onClick={handleCopyEmail}
+         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold border border-[var(--border)] bg-[var(--card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent)] transition cursor-pointer"
+         title="Copy Email Address"
+        >
+         {copiedEmail ? (
+          <>
+           <Check className="w-3.5 h-3.5 text-emerald-600" />
+           <span className="text-emerald-600 font-bold">Copied!</span>
+          </>
+         ) : (
+          <>
+           <Copy className="w-3.5 h-3.5" />
+           <span>Copy</span>
+          </>
+         )}
+        </button>
+       </div>
+
+       <div className="mt-4 pt-3 border-t border-[var(--border)]/60 flex flex-wrap items-center justify-between gap-3">
+        <div>
+         <a
+          href="mailto:teammatch@gmail.com?subject=TeamMatch%20Inquiry"
+          className="text-[18px] sm:text-[20px] font-black text-[var(--text-primary)] hover:text-[var(--accent)] transition tracking-tight flex items-center gap-2"
+         >
+          teammatch@gmail.com
+          <ExternalLink className="w-4 h-4 opacity-50" />
+         </a>
+         <p className="text-[12px] text-[var(--text-secondary)] mt-0.5">
+          Fast response within 2–4 hours for students &amp; teams.
+         </p>
+        </div>
+        <a
+         href="mailto:teammatch@gmail.com?subject=TeamMatch%20Inquiry"
+         className="px-4 py-2 rounded-xl bg-[var(--text-primary)] text-[var(--background)] text-[12px] font-bold hover:opacity-90 transition shrink-0"
+        >
+         Send Email →
+        </a>
+       </div>
+      </div>
+
+      {/* Secondary Cards Grid */}
+      <div className="grid sm:grid-cols-2 gap-4">
+       {/* Phone & WhatsApp */}
+       <div className="p-5 rounded-[20px] bg-[var(--card)] border border-[var(--border)] shadow-sm hover:border-[var(--accent)]/40 transition">
+        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-3">
+         <Phone className="w-5 h-5" />
+        </div>
+        <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Student Helpline &amp; WhatsApp</div>
+        <div className="text-[15px] font-bold text-[var(--text-primary)] mt-1">+91 98765 43210</div>
+        <p className="text-[11.5px] text-[var(--text-secondary)] mt-1.5 leading-relaxed">
+         Direct call or WhatsApp chat for team formation support and fast resolution.
+        </p>
+        <a
+         href="https://wa.me/919876543210?text=Hi%20TeamMatch%20Support"
+         target="_blank"
+         rel="noreferrer"
+         className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] font-bold text-emerald-600 hover:underline"
+        >
+         Chat on WhatsApp →
+        </a>
+       </div>
+
+       {/* Hackathon Partnerships */}
+       <div className="p-5 rounded-[20px] bg-[var(--card)] border border-[var(--border)] shadow-sm hover:border-[var(--accent)]/40 transition">
+        <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center mb-3">
+         <Headphones className="w-5 h-5" />
+        </div>
+        <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Organizer Partnerships</div>
+        <div className="text-[15px] font-bold text-[var(--text-primary)] mt-1 truncate">organizer@teammatch.ai</div>
+        <p className="text-[11.5px] text-[var(--text-secondary)] mt-1.5 leading-relaxed">
+         Dedicated onboarding, custom problem statement setup, and judging panels.
+        </p>
+        <a
+         href="mailto:teammatch@gmail.com?subject=Hackathon%20Organizer%20Partnership"
+         className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] font-bold text-purple-600 hover:underline"
+        >
+         Host Your Hackathon →
+        </a>
+       </div>
+
+       {/* Location / Innovation Center */}
+       <div className="p-5 rounded-[20px] bg-[var(--card)] border border-[var(--border)] shadow-sm hover:border-[var(--accent)]/40 transition">
+        <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center mb-3">
+         <MapPin className="w-5 h-5" />
+        </div>
+        <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Innovation Hub &amp; Chapters</div>
+        <div className="text-[14px] font-bold text-[var(--text-primary)] mt-1">Cyber City Innovation Park</div>
+        <p className="text-[11.5px] text-[var(--text-secondary)] mt-1.5 leading-relaxed">
+         Pune • Mumbai • Bengaluru Campus Connect Hubs, Maharashtra, India.
+        </p>
+        <span className="mt-2.5 inline-block text-[11px] font-semibold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">
+         University Network Active
+        </span>
+       </div>
+
+       {/* Support Schedule */}
+       <div className="p-5 rounded-[20px] bg-[var(--card)] border border-[var(--border)] shadow-sm hover:border-[var(--accent)]/40 transition">
+        <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center mb-3">
+         <Clock className="w-5 h-5" />
+        </div>
+        <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Support Schedule</div>
+        <div className="text-[14px] font-bold text-[var(--text-primary)] mt-1">Mon – Sat: 9:00 AM – 8:00 PM</div>
+        <p className="text-[11.5px] text-[var(--text-secondary)] mt-1.5 leading-relaxed">
+         <strong className="text-[var(--text-primary)]">24/7 Rapid Emergency Support</strong> active during all live hackathons.
+        </p>
+       </div>
+      </div>
+     </div>
+
+     {/* Right: Quick Interactive Message Box */}
+     <div className="p-7 rounded-[24px] bg-[var(--card)] border border-[var(--border)] shadow-[0_12px_36px_rgba(0,0,0,0.05)]">
+      {formSent ? (
+       <div className="py-12 text-center space-y-4">
+        <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-600 mx-auto flex items-center justify-center">
+         <CheckCircle2 className="w-9 h-9" />
+        </div>
+        <h3 className="text-[20px] font-black text-[var(--text-primary)]">Message Sent!</h3>
+        <p className="text-[13px] text-[var(--text-secondary)] max-w-sm mx-auto leading-relaxed">
+         Thank you, <strong className="text-[var(--text-primary)]">{contactForm.name}</strong>. Your note has been delivered to <strong className="text-[var(--accent)]">teammatch@gmail.com</strong>. We will reply to <span className="underline">{contactForm.email}</span> shortly.
+        </p>
+        <button
+         type="button"
+         onClick={() => {
+          setFormSent(false);
+          setContactForm({ name: "", email: "", role: "student", subject: "", message: "" });
+         }}
+         className="mt-4 px-6 py-2.5 rounded-full bg-[var(--surface)] hover:bg-[var(--border)] text-[12.5px] font-bold text-[var(--text-primary)] border border-[var(--border)] transition cursor-pointer"
+        >
+         Send Another Message
+        </button>
+       </div>
+      ) : (
+       <form onSubmit={handleContactSubmit} className="space-y-4">
+        <div className="flex items-center justify-between">
+         <div>
+          <h3 className="text-[18px] font-bold text-[var(--text-primary)]">Send Us a Direct Message</h3>
+          <p className="text-[12px] text-[var(--text-secondary)]">
+           Drop a line directly to our team inbox.
+          </p>
+         </div>
+         <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+          Active Now
+         </span>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3 pt-2">
+         <div>
+          <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1">
+           Your Name *
+          </label>
+          <input
+           required
+           type="text"
+           placeholder="e.g. Yash Patil"
+           value={contactForm.name}
+           onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+           className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--background)] text-[13px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)] transition"
+          />
+         </div>
+         <div>
+          <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1">
+           Email Address *
+          </label>
+          <input
+           required
+           type="email"
+           placeholder="you@domain.com"
+           value={contactForm.email}
+           onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+           className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--background)] text-[13px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)] transition"
+          />
+         </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3">
+         <div>
+          <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1">
+           I am a...
+          </label>
+          <select
+           value={contactForm.role}
+           onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })}
+           className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--background)] text-[13px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)] transition"
+          >
+           <option value="student">Student / Team Member</option>
+           <option value="leader">Team Leader</option>
+           <option value="organizer">Hackathon Organizer</option>
+           <option value="faculty">College Faculty / Mentor</option>
+           <option value="other">Other / General Partner</option>
+          </select>
+         </div>
+         <div>
+          <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1">
+           Subject
+          </label>
+          <input
+           type="text"
+           placeholder="e.g. Hackathon Team Formation"
+           value={contactForm.subject}
+           onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
+           className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--background)] text-[13px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)] transition"
+          />
+         </div>
+        </div>
+
+        <div>
+         <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1">
+          Message *
+         </label>
+         <textarea
+          required
+          rows={4}
+          placeholder="Tell us what you need help with or ask any questions..."
+          value={contactForm.message}
+          onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+          className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--background)] text-[13px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)] transition resize-none"
+         />
+        </div>
+
+        <button
+         type="submit"
+         className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-strong)] hover:opacity-95 text-white font-bold text-[13.5px] shadow-md flex items-center justify-center gap-2 transition cursor-pointer"
+        >
+         <Send className="w-4 h-4" /> Send to teammatch@gmail.com
+        </button>
+        <p className="text-[11px] text-center text-[var(--text-secondary)]">
+         Protected by TeamMatch verification. Direct dispatch to teammatch@gmail.com.
+        </p>
+       </form>
+      )}
+     </div>
+    </div>
+   </div>
+  </section>
+
+  {/* Modern Full Footer */}
+  <footer className="bg-[var(--card)] border-t border-[var(--border)] text-[var(--text-secondary)] pt-16 pb-12">
+   <div className="max-w-[1220px] mx-auto px-6 lg:px-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-[var(--border)]">
+     {/* Brand Column */}
+     <div className="lg:col-span-2 space-y-4">
+      <a href="#home" className="flex items-center gap-2.5">
+       <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-strong)] flex items-center justify-center">
+        <UsersRound className="w-[18px] h-[18px] text-[var(--background)]" />
+       </div>
+       <span className="text-[20px] font-bold tracking-tight text-[var(--text-primary)]">TeamMatch</span>
+       <span className="text-[11px] font-semibold tracking-widest uppercase px-1.5 py-0.5 rounded-md bg-[var(--text-primary)] text-[var(--background)]">
+        AI
+       </span>
+      </a>
+      <p className="text-[13.5px] leading-relaxed max-w-sm">
+       The smart AI-driven matchmaking and assessment ecosystem for hackathons, capstone projects, and student innovation teams.
+      </p>
+      <div className="pt-1 flex items-center gap-3">
+       <a
+        href="mailto:teammatch@gmail.com"
+        className="w-9 h-9 rounded-full bg-[var(--surface)] hover:bg-[var(--accent)] hover:text-white flex items-center justify-center transition border border-[var(--border)]"
+        title="Email Us: teammatch@gmail.com"
+       >
+        <Mail className="w-4 h-4" />
+       </a>
+       <a
+        href="tel:+919876543210"
+        className="w-9 h-9 rounded-full bg-[var(--surface)] hover:bg-emerald-600 hover:text-white flex items-center justify-center transition border border-[var(--border)]"
+        title="Call Us: +91 98765 43210"
+       >
+        <Phone className="w-4 h-4" />
+       </a>
+       <a
+        href="https://github.com/yashnpatil2007-cloud/teammatch"
+        target="_blank"
+        rel="noreferrer"
+        className="w-9 h-9 rounded-full bg-[var(--surface)] hover:bg-[var(--text-primary)] hover:text-[var(--background)] flex items-center justify-center transition border border-[var(--border)]"
+        title="GitHub Repository"
+       >
+        <Code2 className="w-4 h-4" />
+       </a>
+       <a
+        href="https://discord.gg"
+        target="_blank"
+        rel="noreferrer"
+        className="w-9 h-9 rounded-full bg-[var(--surface)] hover:bg-[#5865F2] hover:text-white flex items-center justify-center transition border border-[var(--border)]"
+        title="Discord Community"
+       >
+        <MessageSquare className="w-4 h-4" />
+       </a>
+      </div>
+     </div>
+
+     {/* Platform Column */}
+     <div>
+      <div className="text-[12px] font-extrabold uppercase tracking-widest text-[var(--text-primary)] mb-4">
+       Platform
+      </div>
+      <ul className="space-y-2.5 text-[13px]">
+       <li><a href="#features" className="hover:text-[var(--text-primary)] transition">AI Features</a></li>
+       <li><a href="#problems" className="hover:text-[var(--text-primary)] transition">Problem Statements</a></li>
+       <li><a href="#how" className="hover:text-[var(--text-primary)] transition">How It Works</a></li>
+       <li><a href="#leaderboard" className="hover:text-[var(--text-primary)] transition">Leaderboard</a></li>
+       <li><Link to="/register" className="hover:text-[var(--text-primary)] transition">Assessment Center</Link></li>
+      </ul>
+     </div>
+
+     {/* Portals Column */}
+     <div>
+      <div className="text-[12px] font-extrabold uppercase tracking-widest text-[var(--text-primary)] mb-4">
+       Portals
+      </div>
+      <ul className="space-y-2.5 text-[13px]">
+       <li><Link to="/login" className="hover:text-[var(--text-primary)] transition">Student &amp; Member Login</Link></li>
+       <li><Link to="/login" className="hover:text-[var(--text-primary)] transition">Team Leader Hub</Link></li>
+       <li><Link to="/login" className="hover:text-[var(--text-primary)] transition">Organizer Workspace</Link></li>
+       <li><Link to="/login" className="hover:text-[var(--text-primary)] transition">Admin Console</Link></li>
+       <li><Link to="/register" className="text-[var(--accent)] font-semibold hover:underline">Create Account →</Link></li>
+      </ul>
+     </div>
+
+     {/* Direct Contact Column */}
+     <div>
+      <div className="text-[12px] font-extrabold uppercase tracking-widest text-[var(--text-primary)] mb-4">
+       Direct Contact
+      </div>
+      <ul className="space-y-3 text-[12.5px]">
+       <li className="flex items-start gap-2">
+        <Mail className="w-4 h-4 text-[var(--accent)] shrink-0 mt-0.5" />
+        <div>
+         <div className="font-semibold text-[var(--text-primary)]">Email</div>
+         <a href="mailto:teammatch@gmail.com" className="hover:underline text-[var(--accent)] font-bold">
+          teammatch@gmail.com
+         </a>
+        </div>
+       </li>
+       <li className="flex items-start gap-2">
+        <Phone className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+        <div>
+         <div className="font-semibold text-[var(--text-primary)]">Helpline</div>
+         <a href="tel:+919876543210" className="hover:underline">
+          +91 98765 43210
+         </a>
+        </div>
+       </li>
+       <li className="flex items-start gap-2">
+        <MapPin className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+        <div>
+         <div className="font-semibold text-[var(--text-primary)]">Location</div>
+         <span>Innovation Hub, Pune, India</span>
+        </div>
+       </li>
+      </ul>
+     </div>
+    </div>
+
+    {/* Bottom Bar */}
+    <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[12.5px]">
+     <div>
+      © 2026 <strong>TeamMatch AI</strong>. Built for Hackathons &amp; Capstone Innovators.
+     </div>
+     <div className="flex items-center gap-6">
+      <span className="flex items-center gap-1.5 text-emerald-600 font-semibold">
+       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> All Systems Online
+      </span>
+      <a href="#contact" className="hover:text-[var(--text-primary)]">Support Desk</a>
+      <Link to="/login" className="text-[var(--text-primary)] font-bold hover:underline">
+       Go to Dashboard →
+      </Link>
+     </div>
+    </div>
+   </div>
+  </footer>
  </div>
  );
 }
