@@ -60,7 +60,8 @@ export default function CompetitionsPanel({ initialMode = 'list', focusMode = nu
     setErr('');
     try {
       const data = await competitionApi.list();
-      setCompetitions(data.competitions || []);
+      const list = Array.isArray(data) ? data : (data?.competitions || []);
+      setCompetitions(list);
     } catch (e) {
       setErr(errMsg(e));
     } finally {
@@ -160,11 +161,25 @@ export default function CompetitionsPanel({ initialMode = 'list', focusMode = nu
     setErr('');
     try {
       const data = await competitionApi.teams(c._id);
-      setCompTeams(data.teams || []);
+      const list = Array.isArray(data) ? data : (data?.teams || []);
+      setCompTeams(list);
     } catch (e) {
       setErr(errMsg(e));
     } finally {
       setLoadingTeams(false);
+    }
+  };
+
+  const deleteCompetition = async (c) => {
+    if (!window.confirm(`Delete competition "${c.title}"?`)) return;
+    setErr('');
+    try {
+      await competitionApi.remove(c._id, true);
+      flash(`Competition "${c.title}" deleted.`);
+      await load();
+      onUpdated?.();
+    } catch (e) {
+      setErr(errMsg(e));
     }
   };
 
@@ -206,7 +221,8 @@ export default function CompetitionsPanel({ initialMode = 'list', focusMode = nu
     setWinners(c.winners?.length ? c.winners : [{ rank: 1, teamId: '', teamName: '', projectTitle: '', score: 0, notes: '' }]);
     try {
       const data = await competitionApi.teams(c._id);
-      setCompTeams(data.teams || []);
+      const list = Array.isArray(data) ? data : (data?.teams || []);
+      setCompTeams(list);
     } catch {
       setCompTeams([]);
     }
@@ -326,8 +342,8 @@ export default function CompetitionsPanel({ initialMode = 'list', focusMode = nu
                 <div className="flex flex-wrap items-center gap-4 text-[11px] text-[var(--text-secondary)] pt-1">
                   <span>Category: <strong className="text-[var(--text-primary)]">{c.category || 'General'}</strong></span>
                   <span>Team Size: <strong className="text-[var(--text-primary)]">{c.teamSizeMin || 2}–{c.teamSizeMax || 5}</strong></span>
-                  <span>Problems: <strong className="text-[var(--text-primary)]">{c.problemCount ?? 0}</strong></span>
-                  <span>Teams: <strong className="text-[var(--text-primary)]">{c.teamCount ?? 0}</strong></span>
+                  <span>Problems: <strong className="text-[var(--text-primary)]">{c.stats?.problemsCount ?? c.problemCount ?? 0}</strong></span>
+                  <span>Teams: <strong className="text-[var(--text-primary)]">{c.stats?.teamsCount ?? c.teamCount ?? 0}</strong></span>
                   <span>Judges: <strong className="text-[var(--text-primary)]">{c.judges?.length || 0}</strong></span>
                   {c.endDate && (
                     <span className="flex items-center gap-1">
@@ -359,6 +375,9 @@ export default function CompetitionsPanel({ initialMode = 'list', focusMode = nu
                     <EyeOff className="w-3.5 h-3.5" /> Close
                   </Button>
                 )}
+                <Button size="sm" variant="ghost" onClick={() => deleteCompetition(c)} className="text-red-500 hover:text-red-600 hover:bg-red-500/10" title="Delete competition">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
               </div>
             </div>
 

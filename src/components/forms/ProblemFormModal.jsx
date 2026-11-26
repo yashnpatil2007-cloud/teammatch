@@ -23,7 +23,7 @@ export default function ProblemFormModal({ open, onClose, initial, onSaved, comp
     if (propCompetitions && propCompetitions.length > 0) {
       setCompetitions(propCompetitions);
     } else {
-      competitionApi.list().then((d) => setCompetitions(d.competitions || [])).catch(() => {});
+      competitionApi.list().then((d) => setCompetitions(Array.isArray(d) ? d : (d?.competitions || []))).catch(() => {});
     }
     if (initial) {
       setForm({

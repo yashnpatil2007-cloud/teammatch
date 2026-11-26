@@ -37,6 +37,9 @@ const enrichCompetition = (comp) => {
 
   return {
     ...comp,
+    problemCount: problems.length,
+    teamCount: teams.length,
+    submissionCount: submissions.length,
     organizerDetails: orgUser
       ? { _id: orgUser._id, name: orgUser.name, email: orgUser.email, avatar: orgUser.avatar }
       : null,

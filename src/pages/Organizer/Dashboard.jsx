@@ -69,12 +69,12 @@ export default function OrganizerDashboard() {
         problemApi.list().catch(() => []),
         statsApi.get().catch(() => null),
         teamApi.list().catch(() => []),
-        competitionApi.list().catch(() => ({ competitions: [] })),
+        competitionApi.list().catch(() => []),
       ]);
       setProblems(Array.isArray(p) ? p : []);
       setStats(s);
       setTeams(Array.isArray(t) ? t : []);
-      const comps = c?.competitions || [];
+      const comps = Array.isArray(c) ? c : (c?.competitions || []);
       setCompetitions(comps);
       if (comps[0] && !form.competitionId) {
         setForm((f) => ({ ...f, competitionId: f.competitionId || comps[0]._id }));

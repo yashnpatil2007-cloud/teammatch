@@ -65,14 +65,14 @@ export const problemApi = {
 };
 
 export const competitionApi = {
-  list: (params) => API.get('/competitions', { params }).then((r) => r.data),
+  list: (params) => API.get('/competitions', { params }).then((r) => Array.isArray(r.data) ? r.data : (r.data?.competitions || [])),
   get: (id) => API.get(`/competitions/${id}`).then((r) => r.data),
   create: (payload) => API.post('/competitions', payload).then((r) => r.data),
   update: (id, payload) => API.put(`/competitions/${id}`, payload).then((r) => r.data),
   updateStatus: (id, status) => API.patch(`/competitions/${id}/status`, { status }).then((r) => r.data),
   assignJudges: (id, payload) => API.post(`/competitions/${id}/judges`, payload).then((r) => r.data),
   publishResults: (id, payload) => API.post(`/competitions/${id}/results`, payload).then((r) => r.data),
-  teams: (id) => API.get(`/competitions/${id}/teams`).then((r) => r.data),
+  teams: (id) => API.get(`/competitions/${id}/teams`).then((r) => Array.isArray(r.data) ? r.data : (r.data?.teams || [])),
   remove: (id, force = false) => API.delete(`/competitions/${id}${force ? '?force=true' : ''}`).then((r) => r.data),
   uploadBanner: (formData, onProgress) =>
     API.post('/competitions/upload-banner', formData, {
