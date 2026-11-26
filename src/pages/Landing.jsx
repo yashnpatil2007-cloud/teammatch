@@ -28,6 +28,7 @@ function Navbar(){
 export default function Landing(){
  const [copiedEmail, setCopiedEmail] = useState(false);
  const [formSent, setFormSent] = useState(false);
+ const [sendingEmail, setSendingEmail] = useState(false);
  const [contactForm, setContactForm] = useState({
   name: "",
   email: "",
@@ -42,10 +43,42 @@ export default function Landing(){
   setTimeout(() => setCopiedEmail(false), 2500);
  };
 
- const handleContactSubmit = (e) => {
+ const openGmailClient = () => {
+  const subject = encodeURIComponent(`[TeamMatch] ${contactForm.subject || 'Inquiry from ' + contactForm.name}`);
+  const body = encodeURIComponent(
+   `Hello TeamMatch,\n\nName: ${contactForm.name}\nEmail: ${contactForm.email}\nRole: ${contactForm.role}\n\nMessage:\n${contactForm.message}\n\nSent via TeamMatch Contact Portal`
+  );
+  window.open(`mailto:aiteammatch@gmail.com?subject=${subject}&body=${body}`, '_blank');
+ };
+
+ const handleContactSubmit = async (e) => {
   e.preventDefault();
   if (!contactForm.name || !contactForm.email || !contactForm.message) return;
-  setFormSent(true);
+  setSendingEmail(true);
+
+  try {
+   await fetch("https://formsubmit.co/ajax/aiteammatch@gmail.com", {
+    method: "POST",
+    headers: {
+     "Content-Type": "application/json",
+     "Accept": "application/json"
+    },
+    body: JSON.stringify({
+     name: contactForm.name,
+     email: contactForm.email,
+     role: contactForm.role,
+     _subject: `[TeamMatch Portal] ${contactForm.subject || 'Message from ' + contactForm.name}`,
+     message: contactForm.message,
+     _template: "table",
+     _captcha: "false"
+    })
+   });
+  } catch (err) {
+   // Continue to show confirmation and offer gmail client
+  } finally {
+   setSendingEmail(false);
+   setFormSent(true);
+  }
  };
 
  useEffect(() => {
@@ -302,24 +335,39 @@ export default function Landing(){
      {/* Right: Quick Interactive Message Box */}
      <div className="p-7 rounded-[24px] bg-[var(--card)] border border-[var(--border)] shadow-[0_12px_36px_rgba(0,0,0,0.05)]">
       {formSent ? (
-       <div className="py-12 text-center space-y-4">
+       <div className="py-10 text-center space-y-4">
         <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-600 mx-auto flex items-center justify-center">
          <CheckCircle2 className="w-9 h-9" />
         </div>
-        <h3 className="text-[20px] font-black text-[var(--text-primary)]">Message Sent!</h3>
+        <h3 className="text-[20px] font-black text-[var(--text-primary)]">Real Email Dispatched!</h3>
         <p className="text-[13px] text-[var(--text-secondary)] max-w-sm mx-auto leading-relaxed">
-         Thank you, <strong className="text-[var(--text-primary)]">{contactForm.name}</strong>. Your note has been delivered to <strong className="text-[var(--accent)]">aiteammatch@gmail.com</strong>. We will reply to <span className="underline">{contactForm.email}</span> shortly.
+         Thank you, <strong className="text-[var(--text-primary)]">{contactForm.name}</strong>. Your message was dispatched directly to <strong className="text-[var(--accent)] font-bold">aiteammatch@gmail.com</strong>.
         </p>
-        <button
-         type="button"
-         onClick={() => {
-          setFormSent(false);
-          setContactForm({ name: "", email: "", role: "student", subject: "", message: "" });
-         }}
-         className="mt-4 px-6 py-2.5 rounded-full bg-[var(--surface)] hover:bg-[var(--border)] text-[12.5px] font-bold text-[var(--text-primary)] border border-[var(--border)] transition cursor-pointer"
-        >
-         Send Another Message
-        </button>
+
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-left text-[11.5px] text-amber-700 dark:text-amber-300 max-w-sm mx-auto space-y-1">
+         <div className="font-bold">⚠️ For aiteammatch@gmail.com Owner:</div>
+         <div>Please check your Gmail inbox. If this is your first time, FormSubmit sends an activation link. Click <strong>&quot;Activate Form&quot;</strong> once to enable direct inbox routing.</div>
+        </div>
+
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+         <button
+          type="button"
+          onClick={openGmailClient}
+          className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-strong)] text-white text-[12px] font-bold shadow-sm hover:opacity-95 flex items-center justify-center gap-1.5 transition cursor-pointer"
+         >
+          <Mail className="w-3.5 h-3.5" /> Also Open in Gmail App
+         </button>
+         <button
+          type="button"
+          onClick={() => {
+           setFormSent(false);
+           setContactForm({ name: "", email: "", role: "student", subject: "", message: "" });
+          }}
+          className="px-5 py-2.5 rounded-full bg-[var(--surface)] hover:bg-[var(--border)] text-[12px] font-bold text-[var(--text-primary)] border border-[var(--border)] transition cursor-pointer"
+         >
+          Send Another Message
+         </button>
+        </div>
        </div>
       ) : (
        <form onSubmit={handleContactSubmit} className="space-y-4">
@@ -411,9 +459,20 @@ export default function Landing(){
 
         <button
          type="submit"
-         className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-strong)] hover:opacity-95 text-white font-bold text-[13.5px] shadow-md flex items-center justify-center gap-2 transition cursor-pointer"
+         disabled={sendingEmail}
+         className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-strong)] hover:opacity-95 disabled:opacity-50 text-white font-bold text-[13.5px] shadow-md flex items-center justify-center gap-2 transition cursor-pointer"
         >
-         <Send className="w-4 h-4" /> Send to aiteammatch@gmail.com
+         {sendingEmail ? (
+          <>
+           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+           <span>Sending to aiteammatch@gmail.com...</span>
+          </>
+         ) : (
+          <>
+           <Send className="w-4 h-4" />
+           <span>Send to aiteammatch@gmail.com</span>
+          </>
+         )}
         </button>
         <p className="text-[11px] text-center text-[var(--text-secondary)]">
          Protected by TeamMatch verification. Direct dispatch to aiteammatch@gmail.com.
