@@ -37,7 +37,7 @@ export default function Landing(){
  });
 
  const handleCopyEmail = () => {
-  navigator.clipboard?.writeText("teammatch@gmail.com");
+  navigator.clipboard?.writeText("aiteammatch@gmail.com");
   setCopiedEmail(true);
   setTimeout(() => setCopiedEmail(false), 2500);
  };
@@ -211,10 +211,10 @@ export default function Landing(){
        <div className="mt-4 pt-3 border-t border-[var(--border)]/60 flex flex-wrap items-center justify-between gap-3">
         <div>
          <a
-          href="mailto:teammatch@gmail.com?subject=TeamMatch%20Inquiry"
+          href="mailto:aiteammatch@gmail.com?subject=TeamMatch%20Inquiry"
           className="text-[18px] sm:text-[20px] font-black text-[var(--text-primary)] hover:text-[var(--accent)] transition tracking-tight flex items-center gap-2"
          >
-          teammatch@gmail.com
+          aiteammatch@gmail.com
           <ExternalLink className="w-4 h-4 opacity-50" />
          </a>
          <p className="text-[12px] text-[var(--text-secondary)] mt-0.5">
@@ -222,7 +222,7 @@ export default function Landing(){
          </p>
         </div>
         <a
-         href="mailto:teammatch@gmail.com?subject=TeamMatch%20Inquiry"
+         href="mailto:aiteammatch@gmail.com?subject=TeamMatch%20Inquiry"
          className="px-4 py-2 rounded-xl bg-[var(--text-primary)] text-[var(--background)] text-[12px] font-bold hover:opacity-90 transition shrink-0"
         >
          Send Email →
@@ -263,7 +263,7 @@ export default function Landing(){
          Dedicated onboarding, custom problem statement setup, and judging panels.
         </p>
         <a
-         href="mailto:teammatch@gmail.com?subject=Hackathon%20Organizer%20Partnership"
+         href="mailto:aiteammatch@gmail.com?subject=Hackathon%20Organizer%20Partnership"
          className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] font-bold text-purple-600 hover:underline"
         >
          Host Your Hackathon →
@@ -308,7 +308,7 @@ export default function Landing(){
         </div>
         <h3 className="text-[20px] font-black text-[var(--text-primary)]">Message Sent!</h3>
         <p className="text-[13px] text-[var(--text-secondary)] max-w-sm mx-auto leading-relaxed">
-         Thank you, <strong className="text-[var(--text-primary)]">{contactForm.name}</strong>. Your note has been delivered to <strong className="text-[var(--accent)]">teammatch@gmail.com</strong>. We will reply to <span className="underline">{contactForm.email}</span> shortly.
+         Thank you, <strong className="text-[var(--text-primary)]">{contactForm.name}</strong>. Your note has been delivered to <strong className="text-[var(--accent)]">aiteammatch@gmail.com</strong>. We will reply to <span className="underline">{contactForm.email}</span> shortly.
         </p>
         <button
          type="button"
@@ -413,10 +413,10 @@ export default function Landing(){
          type="submit"
          className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-strong)] hover:opacity-95 text-white font-bold text-[13.5px] shadow-md flex items-center justify-center gap-2 transition cursor-pointer"
         >
-         <Send className="w-4 h-4" /> Send to teammatch@gmail.com
+         <Send className="w-4 h-4" /> Send to aiteammatch@gmail.com
         </button>
         <p className="text-[11px] text-center text-[var(--text-secondary)]">
-         Protected by TeamMatch verification. Direct dispatch to teammatch@gmail.com.
+         Protected by TeamMatch verification. Direct dispatch to aiteammatch@gmail.com.
         </p>
        </form>
       )}
@@ -445,9 +445,9 @@ export default function Landing(){
       </p>
       <div className="pt-1 flex items-center gap-3">
        <a
-        href="mailto:teammatch@gmail.com"
+        href="mailto:aiteammatch@gmail.com"
         className="w-9 h-9 rounded-full bg-[var(--surface)] hover:bg-[var(--accent)] hover:text-white flex items-center justify-center transition border border-[var(--border)]"
-        title="Email Us: teammatch@gmail.com"
+        title="Email Us: aiteammatch@gmail.com"
        >
         <Mail className="w-4 h-4" />
        </a>
@@ -517,8 +517,8 @@ export default function Landing(){
         <Mail className="w-4 h-4 text-[var(--accent)] shrink-0 mt-0.5" />
         <div>
          <div className="font-semibold text-[var(--text-primary)]">Email</div>
-         <a href="mailto:teammatch@gmail.com" className="hover:underline text-[var(--accent)] font-bold">
-          teammatch@gmail.com
+         <a href="mailto:aiteammatch@gmail.com" className="hover:underline text-[var(--accent)] font-bold">
+          aiteammatch@gmail.com
          </a>
         </div>
        </li>
